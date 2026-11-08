@@ -1,0 +1,39 @@
+---
+// Large tagline whose words brighten one at a time, in reading order, as they cross a line
+// 60% of the way down the viewport. Each line of the tagline is one entry in `lines`.
+interface Props { lines: string[] }
+const { lines } = Astro.props;
+let n = 0;
+---
+<section class="tagline" aria-label={lines.join(' ')}>
+  <p aria-hidden="true">
+    {lines.map((line, li) => (
+      <>
+        {line.split(' ').map((w) => <span class="w" data-i={n++}>{w} </span>)}
+        {li < lines.length - 1 && <br />}
+      </>
+    ))}
+  </p>
+</section>
+
+<style>
+  .tagline { padding-block: 80px; border-top: 1px solid var(--line); }
+  p { max-width: 680px; font-size: 36px; line-height: 40px; font-weight: 500; letter-spacing: -0.035em; text-wrap: balance; }
+  @media (min-width: 768px) { .tagline { padding-block: 96px; } p { font-size: 48px; line-height: 1.05; } }
+  .w { color: var(--ink); transition: opacity 600ms var(--ease); }
+  :global(.js) .w { opacity: 0.3; }
+  :global(.js) .w.on { opacity: 1; }
+</style>
+
+<script>
+  const words = [...document.querySelectorAll<HTMLElement>('.tagline .w')];
+  if (words.length) {
+    // words on the same line cross together, so step them 60ms apart in reading order
+    const io = new IntersectionObserver((entries) => {
+      const hits = entries.filter((e) => e.isIntersecting).map((e) => e.target as HTMLElement)
+        .sort((a, b) => Number(a.dataset.i) - Number(b.dataset.i));
+      hits.forEach((w, k) => { w.style.transitionDelay = `${k * 60}ms`; w.classList.add('on'); io.unobserve(w); });
+    }, { rootMargin: '0px 0px -40% 0px' });
+    words.forEach((w) => io.observe(w));
+  }
+</script>

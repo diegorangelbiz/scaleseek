@@ -1,0 +1,123 @@
+---
+// Working page for comparing halftone orb heroes. Not linked from the site and not indexed.
+import Base from '../layouts/Base.astro';
+import HalftoneOrb from '../components/HalftoneOrb.astro';
+
+const variants = [
+  ['1', 'Beside', 'Copy on the left, the orb on the right with a soft amber shadow. Closest to the original sketch.'],
+  ['2', 'Rising', 'Headline up top, a huge orb rising from the bottom edge like a planet, with an amber rim where the light hits.'],
+  ['3', 'Eclipse', 'The orb sits behind the headline, lit from behind, so only an amber corona shows. Dark, dramatic, readable.'],
+  ['4', 'Amber orb', 'The sphere itself in amber dots with a grey shadow. The loudest of the four, and the most ownable colour.'],
+];
+---
+
+<Base title="Orb directions" description="Halftone orb hero directions for review." noindex>
+  <div class="wrap index">
+    <h1>Halftone orb directions</h1>
+    <ol>
+      {variants.map(([id, name, why]) => (
+        <li><a href={`#v${id}`}><span>{id}</span><b>{name}</b></a><p>{why} <a class="solo-link" href={`?d=${id}`}>View alone &rarr;</a></p></li>
+      ))}
+    </ol>
+  </div>
+
+  <!-- 1: beside -->
+  <section class="dir" id="v1">
+    <div class="wrap tag"><span>1</span>Beside</div>
+    <div class="wrap hero two">
+      <div class="copy">
+        <h2 class="hh"><span>We test what AI can actually do.</span> <span>Then we publish what happened.</span></h2>
+        <p class="lede">An independent log of AI experiments, run from El Paso, Texas. Every one is filed with its question, its setup and its result, and nothing is taken down.</p>
+        <a class="btn primary" href="/experiments">Browse the experiments <span aria-hidden="true">&nearr;</span></a>
+      </div>
+      <div class="art square"><HalftoneOrb cx={0.5} cy={0.44} r={0.34} /></div>
+    </div>
+  </section>
+
+  <!-- 2: rising -->
+  <section class="dir" id="v2">
+    <div class="wrap tag"><span>2</span>Rising</div>
+    <div class="rise">
+      <div class="wrap copy center">
+        <h2 class="hh"><span>We test what AI can actually do.</span> <span>Then we publish what happened.</span></h2>
+        <p class="lede">An independent log of AI experiments, run from El Paso, Texas. Every one is filed with its question, its setup and its result.</p>
+        <a class="btn primary" href="/experiments">Browse the experiments <span aria-hidden="true">&nearr;</span></a>
+      </div>
+      <div class="art horizon"><HalftoneOrb mode="rise" cx={0.5} cy={1.18} r={1.0} spacing={9} /></div>
+    </div>
+  </section>
+
+  <!-- 3: eclipse -->
+  <section class="dir" id="v3">
+    <div class="wrap tag"><span>3</span>Eclipse</div>
+    <div class="eclipse">
+      <div class="art fill"><HalftoneOrb mode="eclipse" cx={0.5} cy={0.5} r={0.47} spacing={7} /></div>
+      <div class="wrap copy center over">
+        <h2 class="hh"><span>We test what AI can actually do.</span> <span>Then we publish what happened.</span></h2>
+        <p class="lede">An independent log of AI experiments. Every one is filed with its question, its setup and its result, and nothing is taken down.</p>
+        <a class="btn primary" href="/experiments">Browse the experiments <span aria-hidden="true">&nearr;</span></a>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4: amber orb -->
+  <section class="dir" id="v4">
+    <div class="wrap tag"><span>4</span>Amber orb</div>
+    <div class="wrap hero two">
+      <div class="copy">
+        <h2 class="hh"><span>We test what AI can actually do.</span> <span>Then we publish what happened.</span></h2>
+        <p class="lede">An independent log of AI experiments, run from El Paso, Texas. Every one is filed with its question, its setup and its result, and nothing is taken down.</p>
+        <a class="btn primary" href="/experiments">Browse the experiments <span aria-hidden="true">&nearr;</span></a>
+      </div>
+      <div class="art square"><HalftoneOrb sphere="pop" cx={0.5} cy={0.44} r={0.34} spacing={9} /></div>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .index { padding-block: 64px 32px; display: flex; flex-direction: column; gap: 24px; }
+  .index h1 { font-size: 36px; line-height: 40px; font-weight: 500; letter-spacing: -0.035em; }
+  .index ol { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+  .index li { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 4px 24px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .index li a { display: flex; gap: 12px; align-items: baseline; }
+  .index li a span, .tag span { font-family: var(--f-mono); font-size: 12px; line-height: 16px; color: var(--pop); }
+  .index li b { font-weight: 500; }
+  .index li p { color: var(--mute); font-size: 14px; line-height: 20px; }
+  .solo-link { color: var(--ink); white-space: nowrap; }
+  @media (max-width: 640px) { .index li { grid-template-columns: minmax(0, 1fr); } }
+
+  .dir { border-top: 1px solid var(--line); position: relative; overflow: hidden; }
+  .solo { border-top: 0; }
+  .solo .tag { display: none; }
+  .tag { display: flex; gap: 12px; align-items: baseline; padding-block: 16px; font-size: 14px; line-height: 20px; color: var(--mute); }
+
+  .hh { max-width: 680px; font-size: 48px; line-height: 1; font-weight: 500; letter-spacing: -0.045em; padding-bottom: 4px;
+    background: linear-gradient(90deg, #ffffff, #9b9b9b); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .hh span { display: block; text-wrap: balance; }
+  @media (max-width: 480px) { .hh { font-size: 36px; line-height: 40px; } }
+  .copy { display: flex; flex-direction: column; align-items: flex-start; gap: 24px; }
+  .copy .lede { max-width: 680px; }
+  .center { align-items: center; text-align: center; }
+  .center .hh { margin-inline: auto; }
+
+  .hero { min-height: min(760px, calc(100vh - 72px)); padding-block: 48px 80px; }
+  .two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 32px 48px; }
+  @media (max-width: 900px) { .two { grid-template-columns: minmax(0, 1fr); } }
+  .art.square { aspect-ratio: 1; width: 100%; max-width: 560px; justify-self: end; }
+  @media (max-width: 900px) { .art.square { justify-self: center; max-width: 400px; order: -1; margin-bottom: -48px; } }
+
+  .rise { position: relative; min-height: min(820px, calc(100vh - 72px)); display: flex; flex-direction: column; padding-top: 64px; }
+  .art.horizon { flex: 1; min-height: 360px; margin-top: 0; }
+
+  .eclipse { position: relative; min-height: min(820px, calc(100vh - 72px)); display: grid; place-items: center; }
+  .art.fill { position: absolute; inset: 0; }
+  .over { position: relative; padding-block: 96px; }
+</style>
+
+<script>
+  const only = new URLSearchParams(location.search).get('d');
+  if (only) {
+    document.querySelector('.index')?.remove();
+    document.querySelectorAll<HTMLElement>('.dir').forEach((d) => { if (d.id !== `v${only}`) d.remove(); else d.classList.add('solo'); });
+  }
+</script>

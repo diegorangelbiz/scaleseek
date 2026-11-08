@@ -1,0 +1,55 @@
+---
+import { render } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import Status from '../../components/Status.astro';
+import { getExperiments, pad, longDate } from '../../lib/experiments';
+
+export async function getStaticPaths() {
+  const experiments = await getExperiments();
+  return experiments.map((experiment, i) => ({
+    params: { id: experiment.id },
+    props: { experiment, newer: experiments[i - 1], older: experiments[i + 1] },
+  }));
+}
+
+const { experiment, newer, older } = Astro.props;
+const e = experiment.data;
+const { Content } = await render(experiment);
+---
+
+<Base title={e.title} description={e.summary}>
+  <div class="wrap page">
+    <article class="article">
+      <a class="back" href="/experiments">&larr; All experiments</a>
+      <h1>{e.title}</h1>
+      <div class="meta">
+        <Status status={e.status} />
+        <span>Experiment {pad(e.number)}</span>
+        <span>{e.topic}</span>
+        <span>{longDate(e.date)}</span>
+      </div>
+      <p class="lede">{e.summary}</p>
+      <dl class="facts">
+        <div><dt>Question</dt><dd>{e.question}</dd></div>
+        <div><dt>Setup</dt><dd>{e.setup}</dd></div>
+        <div><dt>Result</dt><dd>{e.result}</dd></div>
+      </dl>
+      <div class="prose"><Content /></div>
+      <nav class="pn" aria-label="More experiments">
+        {older ? <a href={`/experiments/${older.id}`}><span>&larr; Previous</span><b>{older.data.title}</b></a> : <span />}
+        {newer ? <a class="next" href={`/experiments/${newer.id}`}><span>Next &rarr;</span><b>{newer.data.title}</b></a> : <span />}
+      </nav>
+    </article>
+  </div>
+</Base>
+
+<style>
+  .pn { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px; }
+  .pn a { border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px; display: flex; flex-direction: column; gap: 4px; transition: border-color var(--t-tone) var(--ease), transform var(--t-move) var(--ease); }
+  .pn a:hover { border-color: var(--mute); transform: translateY(-2px); }
+  .pn a:active { transform: scale(0.98); }
+  .pn a.next { text-align: right; }
+  .pn span { font-size: 14px; line-height: 20px; color: var(--mute); }
+  .pn b { font-weight: 500; }
+  @media (max-width: 520px) { .pn { grid-template-columns: minmax(0, 1fr); } .pn a.next { text-align: left; } }
+</style>

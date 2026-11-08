@@ -1,0 +1,23 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="Page not found" description="This page is not in the Scaleseek log." noindex>
+  <div class="wrap page">
+    <div class="page-h">
+      <h1>This page is not in the log.</h1>
+      <p class="lede">
+        The link may be old, or the address has a typo. Experiments are never deleted, so the one you want is
+        still in the full list.
+      </p>
+    </div>
+    <div class="btns">
+      <a class="btn primary" href="/experiments">Browse the experiments <span aria-hidden="true">&nearr;</span></a>
+      <a class="back" href="/">&larr; Back to the home page</a>
+    </div>
+  </div>
+</Base>
+
+<style>
+  .btns { gap: 24px; }
+</style>

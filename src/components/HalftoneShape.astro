@@ -1,0 +1,253 @@
+---
+// A 3D shape drawn as a grid of dots, in the same style as HalftoneOrb. Each dot casts a ray
+// into the scene; its size follows how much light the surface it hits receives. The shape turns
+// slowly and the light leans toward the pointer.
+// shape: torus | cube | mark | waves | scale | gyroid | story
+// at: freeze the animation at this many seconds (for reviewing one moment of a loop)
+// palette: the accent colour. A two stop gradient (aurora, indigo, royal, midnight) or flat amber
+interface Props {
+  shape: 'torus' | 'cube' | 'mark' | 'waves' | 'scale' | 'gyroid' | 'story';
+  spacing?: number;
+  zoom?: number;
+  at?: number;
+  palette?: 'amber' | 'aurora' | 'indigo' | 'royal' | 'midnight';
+  class?: string;
+}
+const { shape, spacing = 8, zoom = 1, at, palette = 'aurora', class: cls } = Astro.props;
+---
+<canvas class:list={['dshape', cls]} aria-hidden="true" data-shape={shape} data-s={spacing} data-zoom={zoom} data-at={at} data-palette={palette}></canvas>
+
+<style>
+  .dshape { display: block; width: 100%; height: 100%; pointer-events: none; }
+</style>
+
+<script>
+  type V = [number, number, number];
+  const INK = '244,244,241', POP = '255,178,36';
+  // gradient accents: the first colour leads, blending into the second toward the lower right
+  const PALETTES: Record<string, [number[], number[]]> = {
+    aurora: [[64, 224, 208], [196, 181, 253]],
+    indigo: [[77, 108, 250], [139, 92, 246]],
+    royal: [[52, 84, 222], [112, 64, 214]],
+    midnight: [[40, 66, 184], [92, 46, 170]],
+  };
+  const gradient = (name: string, u: number, v: number) => {
+    const [a, b] = PALETTES[name], f = Math.min(1, Math.max(0, 0.5 + (u - v) * 0.48)) ** 1.25;
+    return a.map((c, i) => Math.round(c + (b[i] - c) * f)).join(',');
+  };
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const len = (x: number, y: number, z: number) => Math.sqrt(x * x + y * y + z * z);
+  const hash = (i: number, j: number) => { const h = Math.sin(i * 127.1 + j * 311.7) * 43758.5453; return h - Math.floor(h); };
+  const smooth = (a: number, b: number, v: number) => { const x = Math.min(1, Math.max(0, (v - a) / (b - a))); return x * x * (3 - 2 * x); };
+  const box = (x: number, y: number, z: number, bx: number, by: number, bz: number, r: number) => {
+    const qx = Math.abs(x) - bx + r, qy = Math.abs(y) - by + r, qz = Math.abs(z) - bz + r;
+    return len(Math.max(qx, 0), Math.max(qy, 0), Math.max(qz, 0)) + Math.min(Math.max(qx, qy, qz), 0) - r;
+  };
+
+  // each scene returns [distance, material]; material 1 is drawn in the accent, material 2 turns from
+  // ink to the accent dot by dot as the scene's morph value goes from 0 to 1.
+  // sway: rock back and forth by this many radians instead of turning all the way round.
+  type Scene = {
+    sdf: (x: number, y: number, z: number, t: number) => [number, number];
+    tilt: number; spin: number; bound: number; step: number; phase?: number; sway?: number;
+    morph?: (t: number) => number; turn?: (t: number) => number;
+  };
+
+  // landscape to layers: hold the land, fold it into the mark, hold, unfold. 16 seconds a loop.
+  const LOOP = 16;
+  const storyMorph = (t: number) => {
+    const p = ((t % LOOP) + LOOP) % LOOP;
+    return p < 5 ? 0 : p < 8 ? smooth(5, 8, p) : p < 13 ? 1 : 1 - smooth(13, 16, p);
+  };
+  const LOW = -0.24, TOP = 0.24, HALF = 0.07, SIDE = 0.82, GROUND = LOW + HALF;
+
+  // The Franklin Mountains as one ridge, running from the back left and stepping down to a point
+  // just behind the middle, where downtown sits at its foot.
+  const RIDGE_A = [-0.5, 0.68], RIDGE_B = [0.02, -0.06], CELL = 0.13, DOWNTOWN = [0.24, -0.3];
+  const ridge = (x: number, z: number) => {
+    const ax = RIDGE_B[0] - RIDGE_A[0], az = RIDGE_B[1] - RIDGE_A[1];
+    const u = Math.min(1.15, Math.max(0, ((x - RIDGE_A[0]) * ax + (z - RIDGE_A[1]) * az) / (ax * ax + az * az)));
+    const d = Math.hypot(x - (RIDGE_A[0] + ax * u), z - (RIDGE_A[1] + az * u));
+    const peak = 0.55 * (1 - smooth(0.45, 1.12, u)) * (0.8 + 0.2 * Math.sin(u * 9 + 1));
+    const spine = 0.06 * Math.abs(Math.sin(u * 27)) * Math.exp(-((d / 0.07) ** 2));
+    const w = 0.17 + 0.1 * (1 - u);
+    return peak * Math.exp(-((d / w) ** 2)) + spine * (1 - smooth(0.6, 1.1, u)) + 0.04 * Math.exp(-((d / 0.5) ** 2));
+  };
+  // the star sits partway down the front slope, slightly toward the viewer
+  const STAR = (() => {
+    const sx = RIDGE_A[0] + (RIDGE_B[0] - RIDGE_A[0]) * 0.78 + 0.07, sz = RIDGE_A[1] + (RIDGE_B[1] - RIDGE_A[1]) * 0.78 - 0.09;
+    return [sx, sz, ridge(sx, sz) + 0.02];
+  })();
+  const SCENES: Record<string, Scene> = {
+    torus: {
+      tilt: 0.8, spin: 0.35, bound: 1.5, step: 1,
+      sdf: (x, y, z) => { const q = Math.sqrt(x * x + z * z) - 0.95; return [len(q, y, 0) - 0.38, 0]; },
+    },
+    cube: {
+      tilt: 0.62, spin: 0.25, bound: 1.6, step: 1, phase: 0.785,
+      sdf: (x, y, z) => [box(x, y, z, 0.78, 0.78, 0.78, 0.06), 0],
+    },
+    mark: {
+      // the two stacked planes of the Scaleseek logo, as slabs
+      tilt: 0.6, spin: 0.2, bound: 1.6, step: 1,
+      sdf: (x, y, z) => {
+        const c = Math.SQRT1_2, rx = (x - z) * c, rz = (x + z) * c;
+        const top = box(rx, y - 0.24, rz, 0.82, 0.07, 0.82, 0.05);
+        const low = box(rx, y + 0.24, rz, 0.82, 0.07, 0.82, 0.05);
+        return top < low ? [top, 1] : [low, 0];
+      },
+    },
+    waves: {
+      tilt: 0.95, spin: 0.08, bound: 1.9, step: 0.55,
+      sdf: (x, y, z, t) => {
+        const h = 0.16 * Math.sin(x * 3.1 + t * 0.9) * Math.cos(z * 2.6 - t * 0.6) + 0.08 * Math.sin((x + z) * 5.2 + t * 1.3);
+        const field = y - h;
+        const edge = box(x, y, z, 1.25, 0.6, 1.25, 0);
+        return [Math.max(field, edge), 0];
+      },
+    },
+    scale: {
+      // three spheres, smallest to largest: the idea of scale
+      tilt: 0.35, spin: 0.22, bound: 1.7, step: 1,
+      sdf: (x, y, z, t) => {
+        const b = Math.sin(t * 0.8) * 0.05;
+        const a = len(x + 0.95, y - 0.38 + b, z) - 0.24;
+        const m = len(x + 0.28, y - 0.12 - b, z) - 0.42;
+        const l = len(x - 0.62, y + 0.12 + b * 0.5, z) - 0.62;
+        return a < m && a < l ? [a, 1] : [Math.min(m, l), 0];
+      },
+    },
+    gyroid: {
+      // a ball carved by a gyroid, an organic lattice
+      tilt: 0.4, spin: 0.15, bound: 1.2, step: 0.45,
+      sdf: (x, y, z) => {
+        const k = 2.6, g = Math.sin(x * k) * Math.cos(y * k) + Math.sin(y * k) * Math.cos(z * k) + Math.sin(z * k) * Math.cos(x * k);
+        const shell = Math.abs(g) / k - 0.13;
+        const ball = len(x, y, z) - 1.05;
+        // the outer skin is ink, the carved lattice inside is the accent
+        return [Math.max(ball, shell), ball > shell ? 0 : 1];
+      },
+    },
+    story: {
+      // downtown El Paso at the foot of the Franklin Mountains, standing on the lower layer of the
+      // mark. The land folds flat and lifts into the top layer, then unfolds again.
+      // the turn crosses zero in the middle of each hold, so land and mark both settle square on
+      tilt: 0.62, spin: 0, bound: 1.7, step: 0.5, morph: storyMorph,
+      turn: (t) => 0.32 * Math.sin((2 * Math.PI * (t - 10.5)) / LOOP),
+      sdf: (x, y, z, t) => {
+        const k = storyMorph(t), keep = 1 - k, c = Math.SQRT1_2, rx = (x - z) * c, rz = (x + z) * c;
+        const low = box(rx, y - LOW, rz, SIDE, HALF, SIDE, 0.05);
+
+        // the land rides on a slab that lifts off the lower layer and thickens into the top layer,
+        // flattening as it rises
+        const lift = GROUND + (TOP - GROUND) * k, thick = 0.006 + (HALF - 0.006) * k, base = lift + thick;
+        const edge = Math.max(Math.abs(rx) - SIDE + 0.02, Math.abs(rz) - SIDE + 0.02);
+
+        // terrain: the ridge plus a little rolling ground; x runs left to right, z front to back
+        const h = (ridge(x, z) + 0.02 * Math.sin(x * 6 + t * 0.8) * Math.cos(z * 5 - t * 0.5) + 0.015) * keep;
+        const land = Math.max((y - base - h) * 0.5, lift - thick - y, edge);
+
+        // downtown: towers clustered at the foot of the ridge, tallest in the middle
+        let city = 1e9;
+        const i = Math.floor(x / CELL), j = Math.floor(z / CELL);
+        const ccx = (i + 0.5) * CELL, ccz = (j + 0.5) * CELL;
+        const dc = Math.hypot(ccx - DOWNTOWN[0], ccz - DOWNTOWN[1]);
+        if (dc < 0.36 && hash(i, j) > 0.28 && ridge(ccx, ccz) < 0.05) {
+          const hh = (0.05 + 0.34 * Math.exp(-((dc / 0.17) ** 2)) * (0.55 + 0.45 * hash(j, i)) + 0.05 * hash(i + 7, j)) * keep + 0.005;
+          city = box(x - ccx, y - base - hh / 2, z - ccz, 0.056, hh / 2, 0.056, 0.004);
+        }
+
+        // the Star on the Mountain, a single point on the front slope
+        const star = len(x - STAR[0], y - (base + STAR[2] * keep), z - STAR[1]) - 0.042 * keep;
+
+        const d = Math.min(land, city, star);
+        if (low < d) return [low, 0];
+        const lit = k < 0.5 && (city <= land || star <= land);
+        return [d, lit ? 1 : 2];
+      },
+    },
+  };
+
+  type Item = { cv: HTMLCanvasElement; on: boolean; ready: boolean; lx: number; ly: number; last: number };
+  const items: Item[] = [...document.querySelectorAll<HTMLCanvasElement>('canvas.dshape')].map((cv) => ({ cv, on: false, ready: false, lx: 0, ly: 0, last: -1e9 }));
+  const ptr = { x: 0, y: 0, has: false };
+  addEventListener('pointermove', (e) => { ptr.x = e.clientX; ptr.y = e.clientY; ptr.has = true; }, { passive: true });
+
+  function draw(it: Item, t: number) {
+    const cv = it.cv, d = cv.dataset, sc = SCENES[d.shape!];
+    if (!sc) return;
+    const W = cv.clientWidth, H = cv.clientHeight, dpr = Math.min(2, devicePixelRatio || 1);
+    if (!W || !H) return;
+    if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+    const g = cv.getContext('2d')!;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+
+    const time = d.at !== undefined ? Number(d.at) : still ? 0 : t / 1000;
+    const morph = sc.morph ? sc.morph(time) : 0;
+    const s = Math.max(5, Number(d.s) * Math.min(1, W / 700) ** 0.3);
+    const S = (Math.min(W, H) / 2) * 0.62 * Number(d.zoom || 1);
+    const cx = W / 2, cy = H / 2;
+
+    // light from the upper left and in front, leaning toward the pointer
+    let tx = -0.55, ty = 0.6;
+    if (ptr.has && !still) {
+      const r = cv.getBoundingClientRect();
+      tx += Math.max(-1, Math.min(1, (ptr.x - r.left - cx) / (W * 0.6))) * 0.7;
+      ty -= Math.max(-1, Math.min(1, (ptr.y - r.top - cy) / (H * 0.6))) * 0.7;
+    }
+    const k = it.ready ? 0.08 : 1; it.ready = true;
+    it.lx += (tx - it.lx) * k; it.ly += (ty - it.ly) * k;
+    const ln = len(it.lx, it.ly, -0.65), L: V = [it.lx / ln, it.ly / ln, -0.65 / ln];
+
+    // rotate world points into the shape's frame: spin about y, then tilt about x
+    const a = (sc.turn ? sc.turn(time) : sc.sway ? Math.sin(time * sc.spin) * sc.sway : time * sc.spin) + (sc.phase ?? 0), ca = Math.cos(a), sa = Math.sin(a), cb = Math.cos(sc.tilt), sb = Math.sin(sc.tilt);
+    const map = (x: number, y: number, z: number) => {
+      const y1 = y * cb - z * sb, z1 = y * sb + z * cb;
+      return sc.sdf(x * ca + z1 * sa, y1, -x * sa + z1 * ca, time);
+    };
+
+    for (let py = s / 2; py < H; py += s) for (let px = s / 2; px < W; px += s) {
+      const u = (px - cx) / S, v = -(py - cy) / S;
+      // skip rays that miss the bounding sphere
+      const bb = sc.bound * sc.bound - u * u - v * v;
+      if (bb <= 0) continue;
+      let z = -Math.sqrt(bb), hit = false, mat = 0;
+      const zEnd = -z;
+      for (let i = 0; i < 64 && z < zEnd; i++) {
+        const [dist, m] = map(u, v, z);
+        if (dist < 0.003) { hit = true; mat = m; break; }
+        z += dist * sc.step;
+      }
+      if (!hit) continue;
+      const e = 0.004;
+      const nx = map(u + e, v, z)[0] - map(u - e, v, z)[0];
+      const ny = map(u, v + e, z)[0] - map(u, v - e, z)[0];
+      const nz = map(u, v, z + e)[0] - map(u, v, z - e)[0];
+      const nl = len(nx, ny, nz) || 1;
+      const lit = Math.max(0, (nx * L[0] + ny * L[1] + nz * L[2]) / nl);
+      // a little ambient light keeps faces turned away from the light visible
+      const val = 0.16 + 0.84 * Math.pow(lit, 1.25);
+      const r = Math.min(s * 0.5, val * s * 0.55);
+      if (r < 0.35) continue;
+      // morphing surfaces switch to the accent one dot at a time, in a scattered order
+      const accent = mat === 1 || (mat === 2 && hash(Math.round(px / s), Math.round(py / s)) < morph);
+      g.fillStyle = `rgb(${!accent ? INK : PALETTES[d.palette!] ? gradient(d.palette!, u, v) : POP})`;
+      g.beginPath(); g.arc(px, py, r, 0, 6.2832); g.fill();
+    }
+  }
+
+  const io = new IntersectionObserver((es) => es.forEach((e) => {
+    const it = items.find((i) => i.cv === e.target); if (it) it.on = e.isIntersecting;
+  }));
+  items.forEach((it) => { io.observe(it.cv); draw(it, 0); });
+  new ResizeObserver(() => items.forEach((it) => draw(it, performance.now()))).observe(document.body);
+  if (!still) {
+    // ray marching is heavier than the orb, so cap each shape at about 30 frames a second
+    const loop = (t: number) => {
+      items.forEach((it) => { if (it.on && t - it.last > 33) { it.last = t; draw(it, t); } });
+      requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
+  }
+</script>

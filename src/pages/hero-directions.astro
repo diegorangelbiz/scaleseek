@@ -1,0 +1,257 @@
+---
+// Working page for comparing hero directions. Not linked from the site and not indexed.
+import Base from '../layouts/Base.astro';
+import Status from '../components/Status.astro';
+import { getExperiments, pad, shortDate, longDate } from '../lib/experiments';
+
+const experiments = await getExperiments();
+const running = experiments.filter((e) => e.data.status === 'Running').length;
+const abandoned = experiments.filter((e) => e.data.status === 'Abandoned');
+const concluded = experiments.filter((e) => e.data.status === 'Concluded');
+const featured = abandoned[0] ?? experiments[0];
+const pairs = concluded.slice(0, 5);
+
+const directions = [
+  ['a', 'The ledger', 'The log itself is the image. No illustration, just every entry, failures and all, in one glance.'],
+  ['b', 'Question first', 'Lead with a real question and its answer, rotating through experiments. The hero is the content.'],
+  ['c', 'The count', 'Editorial numerals. The claim "nothing is taken down" becomes a number you can check: zero removed.'],
+  ['d', 'The mark', 'Brand led and quiet. The two stacked planes of the logo, drawn large in hairlines, cropped off the edge.'],
+  ['e', 'The record', 'Show the abandoned experiment, filed with its reason. Proves the honesty claim instead of stating it.'],
+];
+---
+
+<Base title="Hero directions" description="Hero directions for review." noindex>
+  <div class="wrap index">
+    <h1>Hero directions</h1>
+    <ol>
+      {directions.map(([id, name, why]) => (
+        <li><a href={`#${id}`}><span>{id.toUpperCase()}</span><b>{name}</b></a><p>{why} <a class="solo-link" href={`?d=${id}`}>View alone &rarr;</a></p></li>
+      ))}
+    </ol>
+  </div>
+
+  <!-- A: the ledger -->
+  <section class="dir" id="a">
+    <div class="wrap tag"><span>A</span>The ledger</div>
+    <div class="wrap hero two">
+      <div class="copy">
+        <h2 class="hh">We test what AI can actually do. Then we publish what happened.</h2>
+        <p class="lede">Every experiment is filed with its question, its setup and its result. Nothing is taken down, including the tests that failed.</p>
+        <a class="btn primary" href="/experiments">Browse the experiments <span aria-hidden="true">&nearr;</span></a>
+      </div>
+      <div class="ledger" aria-hidden="true">
+        <div class="lh"><span>No.</span><span>Experiment</span><span>Status</span><span>Filed</span></div>
+        {experiments.map((e) => (
+          <div class:list={['lr', e.data.status.toLowerCase()]}>
+            <span class="n">{pad(e.data.number)}</span>
+            <span class="t">{e.data.title}</span>
+            <Status status={e.data.status} />
+            <span class="d">{shortDate(e.data.date)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- B: question first -->
+  <section class="dir" id="b">
+    <div class="wrap tag"><span>B</span>Question first</div>
+    <div class="wrap hero qf">
+      <div class="rot" aria-live="off">
+        {pairs.map((e, i) => (
+          <div class:list={['pair', { on: i === 0 }]}>
+            <span class="kicker">Experiment {pad(e.data.number)} &middot; {e.data.topic}</span>
+            <h2 class="hh">{e.data.question}</h2>
+            <p class="res"><span>Result</span>{e.data.result}</p>
+          </div>
+        ))}
+      </div>
+      <div class="foot">
+        <p class="lede">Scaleseek tests what AI can actually do, then publishes what happened. {experiments.length} experiments so far, none removed.</p>
+        <a class="btn primary" href="/experiments">Browse the experiments <span aria-hidden="true">&nearr;</span></a>
+      </div>
+    </div>
+  </section>
+
+  <!-- C: the count -->
+  <section class="dir" id="c">
+    <div class="wrap tag"><span>C</span>The count</div>
+    <div class="wrap hero ct">
+      <h2 class="hh">We test what AI can actually do. Then we publish what happened.</h2>
+      <dl class="nums">
+        <div><dt>Filed</dt><dd>{pad(experiments.length)}</dd></div>
+        <div><dt>Running</dt><dd>{pad(running)}</dd></div>
+        <div><dt>Abandoned</dt><dd>{pad(abandoned.length)}</dd></div>
+        <div class="zero"><dt>Removed</dt><dd>00</dd></div>
+      </dl>
+      <div class="row">
+        <p class="lede">Failed and abandoned tests stay in the log with the reason they stopped. The count only goes up.</p>
+        <a class="btn primary" href="/experiments">Browse the experiments <span aria-hidden="true">&nearr;</span></a>
+      </div>
+    </div>
+  </section>
+
+  <!-- D: the mark -->
+  <section class="dir" id="d">
+    <div class="wrap tag"><span>D</span>The mark</div>
+    <div class="mk">
+      <svg class="big" viewBox="80 60 620 640" aria-hidden="true">
+        <g fill="none" stroke-linejoin="round">
+          <path class="p1" pathLength="1" d="M150 265 405 140 650 400 390 530Z"></path>
+          <path class="p2" pathLength="1" d="M240 341 120 400 365 660 620 525 540 437"></path>
+          <path class="p3" pathLength="1" d="M150 205 405 80 650 340 390 470Z"></path>
+        </g>
+      </svg>
+      <div class="wrap hero">
+        <div class="copy">
+          <h2 class="hh">We test what AI can actually do. Then we publish what happened.</h2>
+          <p class="lede">An independent log of AI experiments, run from El Paso, Texas. Every one is filed with its question, its setup and its result.</p>
+          <a class="btn primary" href="/experiments">Browse the experiments <span aria-hidden="true">&nearr;</span></a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- E: the record -->
+  <section class="dir" id="e">
+    <div class="wrap tag"><span>E</span>The record</div>
+    <div class="wrap hero two">
+      <div class="copy">
+        <h2 class="hh">We publish what happened. Even when it went wrong.</h2>
+        <p class="lede">Every AI experiment is filed with its question, its setup and its result. Tests that fail or get abandoned stay in the log and say why.</p>
+        <a class="btn primary" href="/experiments">Browse the experiments <span aria-hidden="true">&nearr;</span></a>
+      </div>
+      <div class="rec-wrap" aria-hidden="true">
+        <article class="rec">
+          <header>
+            <span class="n">Experiment {pad(featured.data.number)}</span>
+            <span class="stamp">{featured.data.status}</span>
+          </header>
+          <h3>{featured.data.title}</h3>
+          <span class="meta2">{featured.data.topic} &middot; {longDate(featured.data.date)}</span>
+          <dl>
+            <div><dt>Question</dt><dd>{featured.data.question}</dd></div>
+            <div><dt>Setup</dt><dd>{featured.data.setup}</dd></div>
+            <div class="hit"><dt>Result</dt><dd>{featured.data.result}</dd></div>
+          </dl>
+        </article>
+        <p class="note"><span>&larr;</span> Still in the log. Filed with the reason it stopped.</p>
+      </div>
+    </div>
+  </section>
+</Base>
+
+<style>
+  /* page scaffolding */
+  .index { padding-block: 64px 32px; display: flex; flex-direction: column; gap: 24px; }
+  .index h1 { font-size: 36px; line-height: 40px; font-weight: 500; letter-spacing: -0.035em; }
+  .index ol { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+  .index li { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 4px 24px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .index li a { display: flex; gap: 12px; align-items: baseline; }
+  .index li a span, .tag span { font-family: var(--f-mono); font-size: 12px; line-height: 16px; color: var(--pop); }
+  .index li b { font-weight: 500; }
+  .solo-link { color: var(--ink); white-space: nowrap; }
+  .index li p { color: var(--mute); font-size: 14px; line-height: 20px; }
+  @media (max-width: 640px) { .index li { grid-template-columns: minmax(0, 1fr); } }
+
+  .dir { border-top: 1px solid var(--line); position: relative; overflow: hidden; }
+  .solo { border-top: 0; }
+  .solo .tag { display: none; }
+  .tag { display: flex; gap: 12px; align-items: baseline; padding-block: 16px; font-size: 14px; line-height: 20px; color: var(--mute); }
+  .hero { min-height: min(760px, calc(100vh - 140px)); display: flex; flex-direction: column; justify-content: center; gap: 32px; padding-block: 48px 80px; }
+
+  /* shared hero type */
+  .hh { max-width: 680px; font-size: 48px; line-height: 1; font-weight: 500; letter-spacing: -0.045em; padding-bottom: 4px;
+    background: linear-gradient(90deg, #ffffff, #9b9b9b); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  @media (max-width: 480px) { .hh { font-size: 36px; line-height: 40px; } }
+  .copy { display: flex; flex-direction: column; align-items: flex-start; gap: 24px; }
+  .copy .lede { max-width: 680px; }
+  .two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 48px 64px; }
+  @media (max-width: 900px) { .two { grid-template-columns: minmax(0, 1fr); } }
+
+  /* A */
+  .ledger { border: 1px solid var(--line); border-radius: 12px; padding: 8px 16px; background: var(--surface); font-size: 14px; line-height: 20px; }
+  .lh, .lr { display: grid; grid-template-columns: 32px minmax(0, 1fr) 104px 48px; gap: 12px; align-items: baseline; padding: 8px 0; }
+  .lh { font-family: var(--f-mono); font-size: 12px; line-height: 16px; color: var(--dim); border-bottom: 1px solid var(--line); }
+  .lr + .lr { border-top: 1px solid var(--line); }
+  .lr .n, .lr .d { font-family: var(--f-mono); font-size: 12px; line-height: 16px; color: var(--dim); }
+  .lr .d { text-align: right; }
+  .lr .t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lr .t { color: var(--ink); }
+  .lr.abandoned .t { color: var(--mute); text-decoration: line-through; text-decoration-color: var(--dim); }
+  .lr :global(.status) { font-size: 12px; line-height: 16px; color: var(--mute); }
+  @media (max-width: 520px) { .lh, .lr { grid-template-columns: 32px minmax(0, 1fr) 48px; } .lh span:nth-child(3), .lr :global(.status) { display: none; } }
+
+  /* B */
+  .qf { justify-content: center; gap: 64px; }
+  .rot { display: grid; }
+  .pair { grid-area: 1 / 1; display: flex; flex-direction: column; gap: 24px; opacity: 0; transform: translateY(24px); transition: opacity 700ms var(--ease), transform 700ms var(--ease); pointer-events: none; }
+  .pair.on { opacity: 1; transform: none; pointer-events: auto; }
+  .pair .hh { max-width: 880px; }
+  @media (max-width: 768px) { .pair .hh { font-size: 36px; line-height: 40px; } }
+  .kicker { font-family: var(--f-mono); font-size: 12px; line-height: 16px; color: var(--mute); }
+  .res { max-width: 680px; font-size: 20px; line-height: 28px; letter-spacing: -0.01em; color: var(--ink); display: flex; flex-direction: column; gap: 8px; padding-top: 16px; border-top: 1px solid var(--line); }
+  .res span { font-family: var(--f-mono); font-size: 12px; line-height: 16px; color: var(--pop); }
+  .qf .foot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 24px 48px; }
+
+  /* C */
+  .ct { gap: 48px; }
+  .nums { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--line); margin: 0; }
+  .nums div { padding: 16px 24px 0 0; display: flex; flex-direction: column; gap: 8px; }
+  .nums div + div { padding-left: 24px; border-left: 1px solid var(--line); }
+  .nums dt { font-size: 14px; line-height: 20px; color: var(--mute); }
+  .nums dd { font-size: 128px; line-height: 1; font-weight: 500; letter-spacing: -0.06em; font-variant-numeric: tabular-nums; color: var(--ink); }
+  .nums .zero dd { color: var(--pop); }
+  .ct .row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 24px 48px; }
+  @media (max-width: 900px) { .nums dd { font-size: 72px; } }
+  @media (max-width: 560px) {
+    .nums { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .nums div:nth-child(3) { padding-left: 0; border-left: 0; }
+    .nums dd { font-size: 60px; }
+  }
+
+  /* D */
+  .mk { position: relative; }
+  .big { position: absolute; right: -4%; top: 50%; width: min(720px, 55vw); height: auto; transform: translateY(-50%); }
+  .big path { stroke-width: 1.5; stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 2400ms var(--ease) forwards; }
+  .big .p1 { stroke: var(--pop); }
+  .big .p2 { stroke: var(--ink); animation-delay: 300ms; }
+  .big .p3 { stroke: var(--dim); animation-delay: 600ms; }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+  @media (prefers-reduced-motion: reduce) { .big path { animation: none; stroke-dashoffset: 0; } }
+  .mk .hero { position: relative; }
+  @media (max-width: 768px) { .big { opacity: 0.4; right: -40%; } }
+
+  /* E */
+  .rec-wrap { display: flex; flex-direction: column; gap: 12px; }
+  .rec { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 24px; display: flex; flex-direction: column; gap: 8px; transform: rotate(-1.5deg); }
+  .rec header { display: flex; justify-content: space-between; align-items: center; }
+  .rec .n, .meta2 { font-family: var(--f-mono); font-size: 12px; line-height: 16px; color: var(--mute); }
+  .stamp { font-family: var(--f-mono); font-size: 12px; line-height: 16px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--pop); border: 1px solid var(--pop); border-radius: 4px; padding: 2px 8px; transform: rotate(4deg); }
+  .rec h3 { font-size: 24px; line-height: 32px; font-weight: 500; letter-spacing: -0.03em; margin-top: 8px; }
+  .rec dl { margin: 16px 0 0; border-top: 1px solid var(--line); }
+  .rec dl div { display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--line); font-size: 14px; line-height: 20px; }
+  .rec dt { font-weight: 500; }
+  .rec dd { color: var(--mute); }
+  .rec .hit dd { color: var(--ink); }
+  .note { font-size: 14px; line-height: 20px; color: var(--pop); padding-left: 24px; }
+</style>
+
+<script>
+  // ?d=a shows a single direction on its own, as it would sit on the home page
+  const only = new URLSearchParams(location.search).get('d');
+  if (only) {
+    document.querySelector('.index')?.remove();
+    document.querySelectorAll<HTMLElement>('.dir').forEach((d) => { if (d.id !== only) d.remove(); else d.classList.add('solo'); });
+  }
+
+  const pairs = [...document.querySelectorAll<HTMLElement>('#b .pair')];
+  if (pairs.length > 1 && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    let i = 0;
+    setInterval(() => {
+      pairs[i].classList.remove('on');
+      i = (i + 1) % pairs.length;
+      pairs[i].classList.add('on');
+    }, 6000);
+  }
+</script>

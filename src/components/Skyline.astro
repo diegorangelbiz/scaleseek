@@ -1,0 +1,291 @@
+---
+// Engraved night view of downtown El Paso for the hero, traced from a daytime photo taken
+// south of downtown looking north-west: the Franklin Mountains and the Star on the Mountain on
+// the left, then WestStar Tower, the Abraham Chavez Theatre, Hotel Paso del Norte, the Plaza
+// Hotel, Wells Fargo Plaza, the Bassett Tower, the Blue Flame Building, Stanton Tower and the
+// county courthouse. Building outlines are in that photo's pixel coordinates (1280 wide).
+---
+<div class="skyline" aria-hidden="true">
+  <canvas class="plate"></canvas>
+  <canvas class="lights"></canvas>
+</div>
+
+<style>
+  .skyline { position: absolute; inset: 0; pointer-events: none; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+</style>
+
+<script>
+  const BG = '#000000', INK = '244,244,241', AMBER = '255,178,36', FLAME = '120,160,255';
+  const SKY = 1, MOUNTAIN = 2, BUILDING = 3, GROUND = 4, GLASS = 5, SHELL = 6;
+  const GROUND_Y = 340;   // street level of the towers in photo pixels
+  const TOP_Y = 150;      // highest point drawn (antenna tips)
+
+  // [x0, x1, top, tone, kind]; kind adds a crown or changes the window pattern
+  type Tower = [number, number, number, number, string];
+  const TOWERS: Tower[] = [
+    [322, 397, 300, 0.1, 'block'],
+    [372, 398, 284, 0.12, 'block'],
+    [478, 606, 296, 0.13, 'brick'],            // original 1912 Hotel Paso del Norte
+    [397, 505, 248, 0.15, 'mansard'],          // Hotel Paso del Norte tower, green mansard roof
+    [606, 690, 300, 0.1, 'block'],
+    [575, 640, 254, 0.14, 'block'],            // One San Jacinto Plaza
+    [515, 575, 258, 0.15, 'plaza'],            // Plaza Hotel, stepped crown and green cap
+    [684, 753, 221, 0.05, 'dark'],             // Wells Fargo Plaza
+    [726, 754, 257, 0.14, 'bassett'],          // Bassett Tower
+    [740, 780, 300, 0.1, 'block'],
+    [778, 826, 246, 0.13, 'block'],            // Blue Flame Building
+    [843, 893, 233, 0.16, 'ribbed'],           // Stanton Tower
+    [893, 966, 300, 0.1, 'block'],
+    [966, 1025, 268, 0.11, 'block'],
+    [1000, 1050, 290, 0.1, 'block'],
+    [1047, 1135, 258, 0.2, 'courthouse'],      // El Paso County Courthouse, blue glass
+    [1135, 1162, 272, 0.11, 'block'],
+    [1162, 1280, 305, 0.1, 'block'],
+  ];
+  const RIDGE = [[0, 182], [40, 173], [80, 168], [115, 170], [150, 178], [200, 190], [260, 205], [320, 228], [360, 246], [390, 262], [430, 274], [480, 280], [640, 284], [1280, 286]];
+  const ANTENNAS = [[108, 152], [160, 160], [245, 186], [292, 196]];
+  const STAR = [205, 222];
+
+  const hash = (x: number, y: number) => {
+    let h = Math.imul(x, 374761393) + Math.imul(y, 668265263);
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+  };
+  const noise = (x: number, y: number) => {
+    const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+    const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+    const a = hash(xi, yi), b = hash(xi + 1, yi), c = hash(xi, yi + 1), d = hash(xi + 1, yi + 1);
+    return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+  };
+  const fbm = (x: number, y: number) => noise(x, y) * 0.5 + noise(x * 2.03, y * 2.03) * 0.3 + noise(x * 4.1, y * 4.1) * 0.2;
+  const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
+  const smooth = (v: number) => { v = clamp(v, 0, 1); return v * v * (3 - 2 * v); };
+  let seed = 11;
+  const rand = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
+
+  type Light = { x: number; y: number; w: number; h: number; c: string; a: number; blink: number; phase: number };
+
+  const root = document.querySelector<HTMLElement>('.skyline');
+  const plate = root?.querySelector<HTMLCanvasElement>('canvas.plate');
+  const lightsCv = root?.querySelector<HTMLCanvasElement>('canvas.lights');
+  let lights: Light[] = [], star = { x: 0, y: 0, r: 0 }, flame = { x: 0, y: 0, s: 1 };
+
+  function draw(cv: HTMLCanvasElement) {
+    const W = Math.round(cv.clientWidth), H = Math.round(cv.clientHeight);
+    if (!W || !H) return;
+    seed = 11;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+
+    // horizontal scale u maps photo pixels to CSS pixels; small screens crop toward the centre
+    const u = Math.max(Math.min(W, 1500) / 1200, 0.52);
+    const ox = W / 2 - 640 * u;
+    const foot = 34 * u;
+    const ground = H - foot;
+    const v = Math.min(1.45 * u, (ground - 8) / (GROUND_Y - TOP_Y));   // vertical exaggeration
+    const X = (px: number) => ox + px * u;
+    const Y = (py: number) => ground - (GROUND_Y - py) * v;
+
+    const mk = () => { const c = document.createElement('canvas'); c.width = W; c.height = H; return c.getContext('2d', { willReadFrequently: true })!; };
+    const T = mk(), R = mk();
+    const grey = (t: number) => { const c = Math.round(clamp(t, 0, 1) * 255); return `rgb(${c},${c},${c})`; };
+    const both = (path: (g: CanvasRenderingContext2D) => void, tone: string | CanvasGradient, region: number) => {
+      T.fillStyle = tone; T.beginPath(); path(T); T.fill();
+      R.fillStyle = `rgb(${region * 40},0,0)`; R.beginPath(); path(R); R.fill();
+    };
+    const rect = (x0: number, x1: number, y0: number, y1: number) => (g: CanvasRenderingContext2D) => g.rect(X(x0), Y(y0), (x1 - x0) * u, Y(y1) - Y(y0));
+
+    // sky: empty overhead so the headline sits on clean black, a faint city haze near the horizon
+    const sky = T.createLinearGradient(0, Y(200), 0, ground);
+    sky.addColorStop(0, grey(0)); sky.addColorStop(1, grey(0.1));
+    both((g) => g.rect(0, 0, W, H), sky, SKY);
+
+    // Franklin Mountains
+    const ridgeAt = (px: number) => {
+      let i = 0; while (i < RIDGE.length - 2 && RIDGE[i + 1][0] < px) i++;
+      const [x0, y0] = RIDGE[i], [x1, y1] = RIDGE[i + 1], t = smooth((px - x0) / (x1 - x0));
+      return y0 + (y1 - y0) * t;
+    };
+    const rock = T.createLinearGradient(0, Y(170), 0, ground);
+    rock.addColorStop(0, grey(0.1)); rock.addColorStop(1, grey(0.2));
+    both((g) => {
+      g.moveTo(0, H);
+      for (let x = 0; x <= W; x += 2) {
+        const px = (x - ox) / u;
+        g.lineTo(x, Y(ridgeAt(px) + (fbm(px * 0.06, 2.3) - 0.5) * 7 + (noise(px * 0.4, 5) - 0.5) * 1.6));
+      }
+      g.lineTo(W, H); g.closePath();
+    }, rock, MOUNTAIN);
+
+    // towers, back to front
+    const windows: number[][] = [];
+    const addWindows = (x0: number, x1: number, top: number, bottom: number, glass: boolean) => {
+      const fx = 5.5, fy = 6.2;
+      for (let y = top + 6; y < bottom - 4; y += fy) {
+        if (glass) { if (rand() < 0.5) windows.push([x0 + 3, y, x1 - x0 - 6, 0.7, 1]); continue; }
+        for (let x = x0 + 3; x < x1 - 4; x += fx) if (rand() < 0.22) windows.push([x, y, 1.6, 2.1, 0]);
+      }
+    };
+    for (const [x0, x1, top, tone, kind] of TOWERS) {
+      const region = kind === 'dark' || kind === 'courthouse' ? GLASS : BUILDING;
+      both(rect(x0, x1, top, GROUND_Y + 4), grey(tone * 0.85), region);
+      T.fillStyle = grey(tone + 0.06); T.fillRect(X(x0), Y(top), (x1 - x0) * u * 0.3, Y(GROUND_Y) - Y(top));
+      if (kind === 'mansard') {
+        both((g) => { g.moveTo(X(397), Y(249)); g.lineTo(X(410), Y(222)); g.lineTo(X(492), Y(222)); g.lineTo(X(505), Y(249)); g.closePath(); }, grey(0.26), BUILDING);
+      }
+      if (kind === 'plaza') {
+        both(rect(523, 567, 245, 259), grey(0.16), BUILDING);
+        both(rect(532, 558, 236, 246), grey(0.18), BUILDING);
+        both((g) => { g.moveTo(X(537), Y(237)); g.lineTo(X(545), Y(225)); g.lineTo(X(553), Y(237)); g.closePath(); }, grey(0.3), BUILDING);
+      }
+      if (kind === 'bassett') {
+        both(rect(733, 747, 250, 258), grey(0.16), BUILDING);
+        both(rect(739, 741, 241, 251), grey(0.2), BUILDING);
+      }
+      if (kind === 'ribbed') both(rect(855, 880, 228, 234), grey(0.14), BUILDING);
+      if (kind === 'courthouse') both(rect(1060, 1122, 250, 259), grey(0.24), GLASS);
+      if (kind === 'dark') T.fillStyle = grey(0.16), T.fillRect(X(x0), Y(top), (x1 - x0) * u, 3 * v);
+      const glass = kind === 'dark' || kind === 'courthouse';
+      addWindows(X(x0), X(x1), Y(top), Y(GROUND_Y), glass);
+    }
+    // WestStar Tower: blue glass box with a gold blade rising past it on the east side
+    both(rect(78, 150, 214, GROUND_Y + 4), grey(0.2), GLASS);
+    both(rect(150, 163, 197, GROUND_Y + 4), grey(0.34), BUILDING);
+    addWindows(X(78), X(150), Y(214), Y(GROUND_Y), true);
+    // Abraham Chavez Theatre: the white sombrero, in front of everything
+    both((g) => {
+      g.moveTo(X(70), Y(406)); g.lineTo(X(72), Y(384));
+      g.bezierCurveTo(X(120), Y(342), X(220), Y(318), X(300), Y(313));
+      g.quadraticCurveTo(X(324), Y(328), X(319), Y(406)); g.closePath();
+    }, grey(0.36), SHELL);
+    T.fillStyle = grey(0.18); T.beginPath(); T.ellipse(X(182), Y(350), 62 * u, 7 * v, -0.1, 0, 7); T.fill();
+    // low roofs in the foreground
+    // street level: a short band of low roofs that fades out below
+    const street = T.createLinearGradient(0, Y(GROUND_Y), 0, H);
+    street.addColorStop(0, grey(0.09)); street.addColorStop(1, grey(0));
+    both((g) => g.rect(0, Y(GROUND_Y + 2), W, H), street, GROUND);
+
+    // ---- sample the maps ----
+    const td = T.getImageData(0, 0, W, H).data, rd = R.getImageData(0, 0, W, H).data;
+    const TONE = new Float32Array(W * H), REG = new Uint8Array(W * H);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = y * W + x, reg = Math.round(rd[i * 4] / 40);
+      let t = td[i * 4] / 255;
+      if (reg === MOUNTAIN) t += 0.22 * Math.pow(1 - Math.abs(2 * fbm(x * 0.02 + y * 0.012, y * 0.05) - 1), 3) - 0.03;
+      else if (reg === GLASS) t += 0.08 * (noise(x * 0.05, y * 0.3) - 0.5);
+      else if (reg === GROUND) t += 0.06 * (fbm(x * 0.05, y * 0.1) - 0.5);
+      // fade the whole plate out at the sides on wide screens
+      const edge = Math.min(x, W - x) / Math.max(40, W * 0.05);
+      TONE[i] = clamp(t, 0, 1) * smooth(edge); REG[i] = reg;
+    }
+
+    const g = cv.getContext('2d')!;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, W, H);
+    const engrave = (pass: number, deg: number, sp: number, alpha: number) => {
+      const th = (deg * Math.PI) / 180, ux = Math.cos(th), uy = Math.sin(th), nx = -uy, ny = ux;
+      const cs = [[0, 0], [W, 0], [0, H], [W, H]];
+      const pn = cs.map(([x, y]) => x * nx + y * ny), pu = cs.map(([x, y]) => x * ux + y * uy);
+      const maxT = sp * 0.46;
+      g.fillStyle = `rgba(${INK},${alpha})`; g.beginPath();
+      for (let o = Math.min(...pn); o <= Math.max(...pn); o += sp) {
+        let up: number[] = [], lo: number[] = [];
+        const flush = () => {
+          if (up.length > 3) {
+            g.moveTo(up[0], up[1]);
+            for (let k = 2; k < up.length; k += 2) g.lineTo(up[k], up[k + 1]);
+            for (let k = lo.length - 2; k >= 0; k -= 2) g.lineTo(lo[k], lo[k + 1]);
+            g.closePath();
+          }
+          up = []; lo = [];
+        };
+        for (let s = Math.min(...pu); s <= Math.max(...pu); s += 1.5) {
+          const wob = (noise(s * 0.02, o * 0.13) - 0.5) * 0.6;
+          const x = o * nx + s * ux + nx * wob, y = o * ny + s * uy + ny * wob;
+          if (x < 0 || y < 0 || x >= W || y >= H) { flush(); continue; }
+          const i = (y | 0) * W + (x | 0);
+          if (REG[i] !== pass) { flush(); continue; }
+          const t = maxT * Math.pow(TONE[i], 0.9);
+          if (t < 0.1) { flush(); continue; }
+          up.push(x + nx * t, y + ny * t); lo.push(x - nx * t, y - ny * t);
+        }
+        flush();
+      }
+      g.fill();
+    };
+    engrave(SKY, 0, 3.4, 0.3);
+    engrave(MOUNTAIN, -24, 2.7, 0.55);
+    engrave(BUILDING, 90, 2.4, 0.55);
+    engrave(GLASS, 0, 2.2, 0.6);
+    engrave(SHELL, -8, 2.2, 0.6);
+    engrave(GROUND, 0, 2.6, 0.4);
+
+    // antennas on the ridge
+    g.strokeStyle = `rgba(${INK},0.6)`; g.lineWidth = 0.8;
+    for (const [px, py] of ANTENNAS) {
+      const base = Y(ridgeAt(px)), tip = Y(py);
+      g.beginPath(); g.moveTo(X(px), base); g.lineTo(X(px), tip); g.stroke();
+      g.beginPath(); g.moveTo(X(px) - 2.5, tip + (base - tip) * 0.35); g.lineTo(X(px) + 2.5, tip + (base - tip) * 0.35); g.stroke();
+    }
+
+    // lights for the animated layer
+    lights = windows.map(([x, y, w, h, glass]) => ({
+      x, y, w, h,
+      c: glass ? '225,232,248' : rand() < 0.8 ? '255,196,110' : '225,232,248',
+      a: (glass ? 0.25 : 0.5) + rand() * 0.4,
+      blink: rand() < 0.08 ? 0.15 + rand() * 0.25 : 0,
+      phase: rand() * 6.28,
+    }));
+    for (const [px, py] of ANTENNAS) lights.push({ x: X(px) - 1, y: Y(py) - 1, w: 2, h: 2, c: AMBER, a: 0.9, blink: 1.6, phase: rand() * 6.28 });
+    for (let x = 4; x < W; x += 5 + rand() * 9) lights.push({ x, y: Y(GROUND_Y) + 2 + rand() * 3, w: 1.3, h: 1.3, c: AMBER, a: 0.25 + rand() * 0.3, blink: 0, phase: 0 });
+    star = { x: X(STAR[0]), y: Y(STAR[1]), r: 7 + 9 * u };
+    flame = { x: X(802), y: Y(246), s: Math.max(0.6, u) };
+  }
+
+  function drawLights(cv: HTMLCanvasElement, t: number) {
+    const W = cv.clientWidth, H = cv.clientHeight, dpr = Math.min(2, window.devicePixelRatio || 1);
+    if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+    const g = cv.getContext('2d')!;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+    g.globalCompositeOperation = 'lighter';
+    for (const l of lights) {
+      const k = l.blink > 1 ? (Math.sin(t * 2 + l.phase) > 0.6 ? 1 : 0.15) : l.blink ? 1 - l.blink + l.blink * Math.sin(t * 0.7 + l.phase) : 1;
+      g.fillStyle = `rgba(${l.c},${l.a * k})`; g.fillRect(l.x, l.y, l.w, l.h);
+    }
+    // the Star on the Mountain
+    const pulse = 0.85 + 0.15 * Math.sin(t * 0.8);
+    const glow = g.createRadialGradient(star.x, star.y, 0, star.x, star.y, star.r * 4);
+    glow.addColorStop(0, `rgba(${AMBER},${0.2 * pulse})`); glow.addColorStop(1, `rgba(${AMBER},0)`);
+    g.fillStyle = glow; g.fillRect(star.x - star.r * 4, star.y - star.r * 4, star.r * 8, star.r * 8);
+    g.fillStyle = `rgba(${AMBER},${0.9 * pulse})`;
+    const pts: number[][] = [];
+    for (let k = 0; k <= 10; k++) { const a = -Math.PI / 2 + (k * Math.PI) / 5, r = k % 2 ? star.r * 0.4 : star.r; pts.push([star.x + Math.cos(a) * r, star.y + Math.sin(a) * r * 0.8]); }
+    for (let k = 0; k < 10; k++) {
+      const [ax, ay] = pts[k], [bx, by] = pts[k + 1], n = Math.max(2, Math.round(Math.hypot(bx - ax, by - ay) / 2.2));
+      for (let j = 0; j < n; j++) g.fillRect(ax + ((bx - ax) * j) / n - 0.6, ay + ((by - ay) * j) / n - 0.6, 1.3, 1.3);
+    }
+    // the blue flame on the Blue Flame Building
+    const f = flame, fl = 1 + 0.08 * Math.sin(t * 5.3) + 0.05 * Math.sin(t * 8.1);
+    g.fillStyle = `rgba(${FLAME},0.55)`;
+    g.beginPath();
+    g.moveTo(f.x, f.y);
+    g.quadraticCurveTo(f.x - 6 * f.s, f.y - 6 * f.s * fl, f.x - 1 * f.s, f.y - 14 * f.s * fl);
+    g.quadraticCurveTo(f.x + 1 * f.s, f.y - 8 * f.s * fl, f.x + 4 * f.s, f.y - 10 * f.s * fl);
+    g.quadraticCurveTo(f.x + 6 * f.s, f.y - 4 * f.s, f.x, f.y);
+    g.fill();
+    g.globalCompositeOperation = 'source-over';
+  }
+
+  if (plate && lightsCv) {
+    const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let lastW = 0, timer = 0;
+    const run = () => { if (plate.clientWidth !== lastW || !lastW) { lastW = plate.clientWidth; draw(plate); drawLights(lightsCv, 0); } };
+    run();
+    new ResizeObserver(() => { clearTimeout(timer); timer = window.setTimeout(run, 150); }).observe(plate);
+    if (!still) {
+      const tick = (ms: number) => { drawLights(lightsCv, ms / 1000); requestAnimationFrame(tick); };
+      requestAnimationFrame(tick);
+    }
+  }
+</script>

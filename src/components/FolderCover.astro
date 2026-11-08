@@ -1,0 +1,185 @@
+---
+// A folder for one experiment: a tabbed back panel, a sheet of paper peeking out, and a front cover
+// printed with a halftone motif drawn from the experiment. The cover colour comes from its topic.
+import { pad, topicColour, type Experiment } from '../lib/experiments';
+
+interface Props { experiment: Experiment }
+const { experiment } = Astro.props;
+const e = experiment.data;
+
+// short cover lines and a type treatment per experiment
+const COVERS: Record<number, { lines: string[]; style: 'stack' | 'label' | 'top' }> = {
+  1: { lines: ['Meeting notes,', 'three ways'], style: 'top' },
+  2: { lines: ['Is it', 'guessing?'], style: 'stack' },
+  3: { lines: ['Two agents', 'one inbox'], style: 'label' },
+  4: { lines: ['Hand', 'writing'], style: 'stack' },
+  5: { lines: ['What retrieval', 'forgets'], style: 'top' },
+  6: { lines: ['Over', 'night'], style: 'stack' },
+  7: { lines: ['Forty invoices', 'one schema'], style: 'label' },
+  8: { lines: ['The small', 'referee'], style: 'top' },
+};
+
+const colour = topicColour(experiment);
+const cover = COVERS[e.number] ?? { lines: [e.title], style: 'top' as const };
+---
+
+<div class:list={['folder', e.status.toLowerCase()]} style={`--c:${colour}`}>
+  <div class="back" aria-hidden="true"></div>
+  <div class="sheet" aria-hidden="true"><span>Q.</span> {e.question}</div>
+  <div class="front">
+    <canvas data-motif={e.number} aria-hidden="true"></canvas>
+    <div class={`type ${cover.style}`}>
+      {cover.lines.map((l) => <span>{l}</span>)}
+    </div>
+    <span class="no">No. {pad(e.number)}</span>
+    {e.status === 'Abandoned' && <span class="stamp">Abandoned</span>}
+  </div>
+</div>
+
+<style>
+  .folder { position: relative; aspect-ratio: 1 / 1.02; width: 100%; perspective: 1200px;
+    --ink: color-mix(in srgb, var(--c) 32%, #0b0b0b); --deep: color-mix(in srgb, var(--c) 72%, #000000); }
+
+  /* back panel with the tab on its right edge, like a file folder standing up */
+  .back { position: absolute; inset: 6% 0 0 8%; background: var(--deep); border-radius: 6px 10px 8px 6px;
+    clip-path: polygon(0 0, 88% 0, 88% 8%, 100% 13%, 100% 52%, 88% 57%, 88% 100%, 0 100%); }
+  .sheet { position: absolute; inset: 2% 16% 8% 6%; background: #efede6; color: #2a2a28; border-radius: 4px;
+    padding: 16px; font-size: 12px; line-height: 16px; transform: translateY(0); transition: transform var(--t-move) var(--ease); }
+  .sheet span { font-family: var(--f-mono); color: #8a8a84; }
+  .front { position: absolute; inset: 8% 14% 0 0; background: var(--c); border-radius: 6px; overflow: hidden;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.25) inset, 0 16px 32px -16px rgba(0, 0, 0, 0.8);
+    transform-origin: 50% 100%; transition: transform var(--t-move) var(--ease); }
+  /* print grain over the whole cover */
+  .front::after { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0.35; mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.9 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+  :global(a:hover) .folder .front, .folder:hover .front { transform: rotateX(8deg); }
+  :global(a:hover) .folder .sheet, .folder:hover .sheet { transform: translateY(-8%); }
+  @media (prefers-reduced-motion: reduce) { .front, .sheet { transition: none; } }
+
+  .type { position: absolute; color: var(--ink); font-weight: 600; letter-spacing: -0.05em; z-index: 1; }
+  .type span { display: block; }
+  .type.top { left: 8%; right: 24%; top: 8%; font-size: clamp(24px, 10cqw, 36px); line-height: 0.95; font-weight: 500; }
+  .type.stack { inset: 7% 8% auto; font-size: clamp(36px, 17cqw, 80px); line-height: 0.82; text-transform: uppercase; font-weight: 700; letter-spacing: -0.06em; }
+  .type.label { left: 8%; top: 9%; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; letter-spacing: 0; }
+  .type.label span { white-space: nowrap; font-family: var(--f-mono); font-weight: 500; font-size: 12px; line-height: 16px; padding: 4px 8px; background: var(--ink); color: var(--c); border-radius: 2px; }
+  .type.label span:nth-child(2) { margin-left: 24%; }
+  .no { position: absolute; z-index: 1; font-family: var(--f-mono); font-size: 12px; line-height: 16px; color: var(--ink); }
+  .no { right: 8%; top: 6%; }
+  .type.stack ~ .no { top: auto; bottom: 5%; }
+  .stamp { position: absolute; z-index: 2; right: 8%; bottom: 14%; transform: rotate(-8deg); font-family: var(--f-mono); font-size: 12px; line-height: 16px;
+    text-transform: uppercase; letter-spacing: 0.08em; color: #c2412d; border: 2px solid #c2412d; padding: 4px 8px; border-radius: 4px; mix-blend-mode: multiply; }
+  .front { container-type: inline-size; }
+</style>
+
+<script>
+  // Each cover's motif is a brightness field in 0..1 over the unit square. Dots on a grid take
+  // their radius from it, so every cover reads as the same halftone print in its own colour.
+  type Field = (x: number, y: number) => number;
+  const clamp = (v: number) => Math.max(0, Math.min(1, v));
+  const smooth = (a: number, b: number, v: number) => { const t = clamp((v - a) / (b - a)); return t * t * (3 - 2 * t); };
+  const hash = (x: number, y: number) => { const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return s - Math.floor(s); };
+  const ring = (x: number, y: number, cx: number, cy: number, r: number) => Math.hypot(x - cx, y - cy) - r;
+  // a lit sphere: brighter toward the upper left, zero outside
+  const ball = (x: number, y: number, cx: number, cy: number, r: number) => {
+    const dx = (x - cx) / r, dy = (y - cy) / r, d2 = dx * dx + dy * dy;
+    if (d2 > 1) return 0;
+    const z = Math.sqrt(1 - d2);
+    return clamp(0.2 + 0.8 * (-dx * 0.45 - dy * 0.5 + z * 0.74));
+  };
+
+  // every motif sits in the lower part of the cover so the title has the top to itself
+  const MOTIFS: Record<string, Field> = {
+    // three columns of text lines, each set differently: bullets, a paragraph, a table
+    1: (x, y) => {
+      if (y < 0.46 || y > 0.86) return 0;
+      const col = Math.floor((x - 0.08) / 0.29), cx = (x - 0.08) % 0.29, row = Math.floor((y - 0.46) / 0.045);
+      if (col < 0 || col > 2 || cx > 0.25) return 0;
+      if ((y - 0.46) % 0.045 > 0.026) return 0;
+      if (col === 0) return cx > 0.03 && cx < 0.06 + 0.17 * hash(row, 1) ? 1 : cx < 0.018 ? 1 : 0;
+      if (col === 1) return cx < (row % 5 === 4 ? 0.12 : 0.25) ? 0.85 : 0;
+      return cx % 0.085 < 0.07 ? (row === 0 ? 1 : 0.55) : 0;
+    },
+    // a calibration curve: stated confidence against actual accuracy, with the ideal diagonal dashed
+    2: (x, y) => {
+      const u = (x - 0.1) / 0.8, v = 1 - (y - 0.46) / 0.42;
+      if (u < 0 || u > 1 || v < 0 || v > 1) return 0;
+      const ideal = Math.abs(v - u) < 0.03 && Math.floor(u * 24) % 2 === 0 ? 0.7 : 0;
+      const actual = 0.06 + 0.7 * Math.pow(u, 1.8);
+      const under = v < actual ? 0.2 + 0.45 * v : 0;
+      return Math.max(ideal, Math.abs(v - actual) < 0.04 ? 1 : under);
+    },
+    // two spheres sharing one envelope
+    3: (x, y) => {
+      const ex = Math.abs(x - 0.5);
+      const env = ex < 0.32 && y > 0.74 && y < 0.92 ? 0.3 : 0;
+      const flap = ex < 0.32 && Math.abs(y - 0.74 - 0.12 * (1 - ex / 0.32)) < 0.012 ? 1 : 0;
+      return Math.max(env, flap, ball(x, y, 0.36, 0.6, 0.12), ball(x, y, 0.64, 0.6, 0.12));
+    },
+    // a looping cursive stroke
+    4: (x, y) => {
+      let d = 9;
+      for (let i = 0; i <= 160; i++) {
+        const t = i / 160, px = 0.1 + 0.8 * t + 0.06 * Math.sin(t * 28), py = 0.7 + 0.1 * Math.cos(t * 28) - 0.05 * Math.sin(t * 6);
+        d = Math.min(d, Math.hypot(x - px, y - py));
+      }
+      return d < 0.03 ? 1 - d / 0.04 : 0;
+    },
+    // a grid of chunks where pieces go missing toward the bottom
+    5: (x, y) => {
+      const gx = Math.floor((x - 0.08) / 0.105), gy = Math.floor((y - 0.4) / 0.1);
+      if (gx < 0 || gx > 7 || gy < 0 || gy > 4) return 0;
+      const inCell = (x - 0.08) % 0.105 < 0.08 && (y - 0.4) % 0.1 < 0.075;
+      const kept = hash(gx, gy) > gy * 0.18;
+      return inCell && kept ? 0.4 + 0.5 * (1 - gy / 5) : 0;
+    },
+    // a crescent moon over lines of code
+    6: (x, y) => {
+      const moon = ring(x, y, 0.62, 0.54, 0.17) < 0 && ring(x, y, 0.69, 0.49, 0.155) > 0 ? 1 : 0;
+      const row = Math.floor((y - 0.77) / 0.035);
+      const code = y > 0.77 && y < 0.85 && (y - 0.77) % 0.035 < 0.02 && x > 0.08 + 0.05 * (row % 2) && x < 0.3 + 0.5 * hash(row, 6) ? 0.6 : 0;
+      return Math.max(moon, code);
+    },
+    // forty scattered slips settling into one table
+    7: (x, y) => {
+      let v = 0;
+      for (let i = 0; i < 40; i++) {
+        const t = i / 39, sx = 0.12 + 0.76 * hash(i, 7), sy = 0.42 + 0.14 * hash(7, i);
+        const tx = 0.14 + (i % 8) * 0.093, ty = 0.66 + Math.floor(i / 8) * 0.045;
+        const k = smooth(0.25, 0.75, t);
+        const cx = sx + (tx - sx) * k, cy = sy + (ty - sy) * k;
+        if (Math.abs(x - cx) < 0.032 && Math.abs(y - cy) < 0.016) v = Math.max(v, 0.35 + 0.65 * k);
+      }
+      return v;
+    },
+    // a small sphere judging a large one
+    8: (x, y) => Math.max(ball(x, y, 0.64, 0.66, 0.22), ball(x, y, 0.24, 0.8, 0.07), Math.abs(y - 0.885) < 0.006 && x > 0.08 && x < 0.92 ? 0.5 : 0),
+  };
+
+  function draw(canvas: HTMLCanvasElement) {
+    const field = MOTIFS[canvas.dataset.motif ?? ''];
+    const box = canvas.getBoundingClientRect();
+    if (!field || !box.width) return;
+    const dpr = Math.min(2, devicePixelRatio || 1), w = box.width, h = box.height;
+    canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+    const ctx = canvas.getContext('2d')!;
+    ctx.scale(dpr, dpr);
+    const front = canvas.parentElement!, ink = getComputedStyle(front.closest('.folder')!).getPropertyValue('--ink').trim();
+    ctx.fillStyle = ink || '#111';
+    const step = Math.max(5, w / 56), max = step * 0.5;
+    for (let py = step / 2; py < h; py += step) {
+      for (let px = step / 2; px < w; px += step) {
+        const v = field(px / w, py / h);
+        if (v <= 0.02) continue;
+        ctx.beginPath();
+        ctx.arc(px, py, max * Math.sqrt(v) * 0.92, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  const canvases = document.querySelectorAll<HTMLCanvasElement>('canvas[data-motif]');
+  const ro = new ResizeObserver((entries) => entries.forEach((en) => draw(en.target as HTMLCanvasElement)));
+  canvases.forEach((c) => ro.observe(c));
+</script>

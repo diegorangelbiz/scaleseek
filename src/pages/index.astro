@@ -1,0 +1,108 @@
+---
+import Base from '../layouts/Base.astro';
+import Steps from '../components/Steps.astro';
+import TaglineReveal from '../components/TaglineReveal.astro';
+import HalftoneShape from '../components/HalftoneShape.astro';
+import ExperimentGrid from '../components/ExperimentGrid.astro';
+import { getExperiments } from '../lib/experiments';
+
+const latest = (await getExperiments()).slice(0, 6);
+
+const faq = [
+  ['Who runs Scaleseek?', 'Scaleseek is an independent project based in El Paso, Texas. It is not sponsored by any model provider, and no vendor sees a result before it is published.'],
+  ['What happens to experiments that fail?', 'They stay in the log. A failed or abandoned test is filed like any other, with a note on what went wrong and why it stopped.'],
+  ['What do Running, Concluded and Abandoned mean?', 'Running means the test is still collecting results. Concluded means it reached an answer. Abandoned means it was stopped early, and the entry says why.'],
+  ['Can I repeat an experiment myself?', 'Yes. The models, data and prompts are written down before each test runs, so the setup section of every entry is enough to run it again.'],
+  ['Why does every entry use the same format?', 'A question, a setup and a result make tests comparable. You can read across experiments and see which conditions changed and which outcomes moved.'],
+  ['Can I suggest a test?', 'Yes. Write to hello@scaleseek.com with the question you want answered. Questions that can be settled with yes, no, or how much are the easiest to take on.'],
+];
+const faqSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: faq.map(([q, a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })),
+};
+---
+
+<Base>
+  <script slot="head" type="application/ld+json" set:html={JSON.stringify(faqSchema)} />
+
+  <section class="wrap hero">
+    <div class="copy">
+      <h1>AI with <span>real-world</span> outcomes.</h1>
+      <p class="lede">
+        Scaleseek is an independent log of AI experiments, run from El Paso, Texas. Every one is filed with its question,
+        its setup and its result, and nothing is taken down, including the tests that failed.
+      </p>
+      <a class="btn primary" href="/experiments">Browse the experiments <span aria-hidden="true">&nearr;</span></a>
+    </div>
+    <div class="art"><HalftoneShape shape="story" spacing={6} /></div>
+  </section>
+
+  <div class="wrap">
+    <section class="block">
+      <div class="sec-h">
+        <h2>Latest experiments</h2>
+        <a class="more" href="/experiments">All experiments <span class="arrow">&rarr;</span></a>
+      </div>
+      <ExperimentGrid experiments={latest} />
+    </section>
+
+    <TaglineReveal lines={[
+      'A result means little until you can see how it was reached.',
+      'So every test shows its question, its setup and what actually happened.',
+    ]} />
+
+
+    <section class="block" data-reveal>
+      <div class="sec-h">
+        <h2>Every experiment is recorded the same way</h2>
+        <a class="more" href="/method">The method <span class="arrow">&rarr;</span></a>
+      </div>
+      <Steps />
+    </section>
+
+    <section class="block faq" data-reveal>
+      <div class="sec-h"><h2>Questions</h2></div>
+      <div class="ls">
+        {faq.map(([q, a]) => (
+          <details>
+            <summary>{q}<span class="pm" aria-hidden="true"></span></summary>
+            <p>{a}</p>
+          </details>
+        ))}
+      </div>
+    </section>
+
+    <section class="block end" data-reveal>
+      <h2>Read the log, failures included.</h2>
+      <p class="lede">Free to read, no sign up. Every entry links to the next, newest first.</p>
+      <a class="btn primary" href="/experiments">Browse the experiments <span aria-hidden="true">&nearr;</span></a>
+    </section>
+  </div>
+</Base>
+
+<style>
+  .hero { min-height: min(760px, calc(100vh - 72px)); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 48px 64px; padding-block: 64px 80px; }
+  @media (max-width: 960px) { .hero { grid-template-columns: minmax(0, 1fr); min-height: 0; padding-block: 48px 64px; } }
+  .copy { display: flex; flex-direction: column; align-items: flex-start; gap: 24px; }
+  .copy .lede { max-width: 680px; }
+  .hero h1 { max-width: 680px; font-size: 48px; line-height: 1; font-weight: 500; letter-spacing: -0.045em; padding-bottom: 4px;
+    background: linear-gradient(90deg, #ffffff, #9b9b9b); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .hero h1 span { white-space: nowrap; }
+  @media (max-width: 480px) { .hero h1 { font-size: 36px; line-height: 40px; } }
+
+  .art { aspect-ratio: 1; width: 100%; max-width: 560px; justify-self: end; }
+  @media (max-width: 960px) { .art { justify-self: center; max-width: 400px; order: -1; margin-bottom: -48px; } }
+
+  .faq details { border-bottom: 1px solid var(--line); }
+  .faq summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 24px; padding: 16px 0; font-size: 18px; line-height: 28px; font-weight: 500; letter-spacing: -0.02em; }
+  .faq summary::-webkit-details-marker { display: none; }
+  .pm { position: relative; width: 12px; height: 12px; flex: none; }
+  .pm::before, .pm::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 1.5px; margin-top: -0.75px; background: var(--mute); transition: transform var(--t-move) var(--ease); }
+  .pm::after { transform: rotate(90deg); }
+  details[open] .pm::after { transform: rotate(0deg); }
+  .faq details p { color: var(--mute); max-width: 66ch; padding-bottom: 16px; }
+
+  .end { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; padding-block: 80px; }
+  .end h2 { font-size: 36px; line-height: 40px; font-weight: 500; letter-spacing: -0.035em; max-width: 680px; }
+</style>

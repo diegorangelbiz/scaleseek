@@ -1,0 +1,111 @@
+---
+// Working page for comparing accent palettes on the homepage hero. Not linked from the site and
+// not indexed. ?p=<palette> shows one option alone, &at=<seconds> freezes the loop.
+import Base from '../layouts/Base.astro';
+import HalftoneShape from '../components/HalftoneShape.astro';
+
+const options = [
+  ['indigo', 'Indigo', 'Bright blue into violet. The most legible of the darker set.', '#4d6cfa', '#8b5cf6'],
+  ['royal', 'Royal', 'A deeper cobalt into purple. Richer, still clear on black.', '#3454de', '#7040d6'],
+  ['midnight', 'Midnight', 'The darkest pairing. Moody and quiet, the dots recede more.', '#2842b8', '#5c2eaa'],
+  ['aurora', 'Current', 'Turquoise into light purple, as it is on the homepage now.', '#40e0d0', '#c4b5fd'],
+] as const;
+---
+
+<Base title="Palettes" description="Accent palette options for review." noindex>
+  <div class="wrap index">
+    <h1>Palette options</h1>
+    <p class="lede">Darker blue and purple accents, each with a white button that carries a faint tint of its palette. Open one to see it alone.</p>
+    <ol>
+      {options.map(([id, name, why, a, b]) => (
+        <li>
+          <span class="sw" style={`--a:${a};--b:${b}`}></span>
+          <b>{name}</b>
+          <p>{why} <a class="solo-link" href={`?p=${id}`}>View alone &rarr;</a></p>
+        </li>
+      ))}
+    </ol>
+  </div>
+
+  {options.map(([id, name, , a, b]) => (
+    <section class="opt" data-id={id} style={`--pop:${a};--pop-2:${b}`}>
+      <div class="wrap tag"><span>{name}</span></div>
+      <div class="wrap hero">
+        <div class="copy">
+          <h2 class="hh"><span>We test what AI can actually do.</span> <span>Then we publish what happened.</span></h2>
+          <p class="lede">An independent log of AI experiments, run from El Paso, Texas. Every one is filed with its question, its setup and its result, and nothing is taken down.</p>
+          <div class="btns">
+            <a class="btn white" href="/experiments">Browse the experiments <span aria-hidden="true">&nearr;</span></a>
+          </div>
+          <div class="samples">
+            <span class="kicker">Latest experiment</span>
+            <span class="status running">Running</span>
+            <a class="more" href="/method">The method <span class="arrow">&rarr;</span></a>
+            <a class="ul" href="/about">Underlined link</a>
+          </div>
+        </div>
+        <div class="big"><HalftoneShape shape="story" spacing={6} palette={id} /></div>
+      </div>
+    </section>
+  ))}
+</Base>
+
+<style>
+  .index { padding-block: 64px 32px; display: flex; flex-direction: column; gap: 24px; }
+  .index h1 { font-size: 36px; line-height: 40px; font-weight: 500; letter-spacing: -0.035em; }
+  .index ol { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+  .index li { display: grid; grid-template-columns: 48px 160px minmax(0, 1fr); align-items: center; gap: 4px 16px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .index li b { font-weight: 500; }
+  .index li p { color: var(--mute); font-size: 14px; line-height: 20px; }
+  .sw { width: 48px; height: 24px; border-radius: 6px; background: linear-gradient(90deg, var(--a), var(--b)); }
+  .solo-link { color: var(--ink); white-space: nowrap; }
+  @media (max-width: 640px) { .index li { grid-template-columns: 48px minmax(0, 1fr); } .index li p { grid-column: 1 / -1; } }
+
+  .opt { border-top: 1px solid var(--line); }
+  .solo { border-top: 0; }
+  .solo .tag { display: none; }
+  .tag { padding-block: 16px; font-size: 14px; line-height: 20px; color: var(--mute); }
+  .tag span { font-family: var(--f-mono); font-size: 12px; line-height: 16px; color: var(--ink); }
+
+  .hero { min-height: min(760px, calc(100vh - 72px)); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 32px 48px; padding-block: 48px 80px; }
+  @media (max-width: 900px) { .hero { grid-template-columns: minmax(0, 1fr); } }
+  .copy { display: flex; flex-direction: column; align-items: flex-start; gap: 24px; }
+  .copy .lede { max-width: 680px; }
+  .hh { max-width: 680px; font-size: 48px; line-height: 1; font-weight: 500; letter-spacing: -0.045em; padding-bottom: 4px;
+    background: linear-gradient(90deg, #ffffff, #9b9b9b); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .hh span { display: block; text-wrap: balance; }
+  @media (max-width: 480px) { .hh { font-size: 36px; line-height: 40px; } }
+  .big { aspect-ratio: 1; width: 100%; max-width: 560px; justify-self: end; }
+  @media (max-width: 900px) { .big { justify-self: center; max-width: 400px; order: -1; margin-bottom: -32px; } }
+
+  /* the white button: near white at the top, easing into a faint tint of the palette */
+  .btn.white { color: #000000; border: 1px solid rgba(255, 255, 255, 0.6);
+    background: linear-gradient(180deg, #ffffff 0%, color-mix(in srgb, var(--pop) 16%, #e8eaf2) 100%);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--pop) 0%, transparent);
+    transition: box-shadow var(--t-tone) var(--ease), transform var(--t-move) var(--ease); }
+  .btn.white:hover { border-color: #ffffff; box-shadow: 0 0 24px 0 color-mix(in srgb, var(--pop) 45%, transparent); transform: translateY(-1px); }
+  .btn.white:active { transform: scale(0.98); }
+  /* the nav button takes the same white treatment on this page, with a neutral tint */
+  :global(.hd .btn.primary) { color: #000000; border-color: rgba(255, 255, 255, 0.6); background: linear-gradient(180deg, #ffffff 0%, #dfe2ec 100%); }
+  :global(.hd .btn.primary:hover) { background: linear-gradient(180deg, #ffffff 0%, #eceef4 100%); border-color: #ffffff; }
+
+  .samples { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; padding-top: 16px; border-top: 1px solid var(--line); width: 100%; }
+  /* small text in the secondary colour is lifted toward white so the darker palettes stay readable */
+  .opt { --pop-2-text: color-mix(in srgb, var(--pop-2) 55%, #ffffff); }
+  .opt :global(.arrow) { color: var(--pop-2-text); }
+  .kicker { font-family: var(--f-mono); font-size: 12px; line-height: 16px; color: var(--pop-2-text); }
+  .ul { font-size: 14px; line-height: 20px; text-decoration: underline; text-decoration-color: var(--pop-2); text-underline-offset: 4px; }
+</style>
+
+<script>
+  const q = new URLSearchParams(location.search), only = q.get('p'), at = q.get('at');
+  if (only) {
+    const keep = document.querySelector<HTMLElement>(`.opt[data-id="${only}"]`);
+    if (keep) {
+      document.querySelector('.index')?.remove();
+      document.querySelectorAll('.opt').forEach((o) => { if (o !== keep) o.remove(); });
+      keep.classList.add('solo');
+    }
+  }
+  if (at !== null) document.querySelectorAll<HTMLCanvasElement>('.opt canvas').forEach((c) => (c.dataset.at = at));
+</script>

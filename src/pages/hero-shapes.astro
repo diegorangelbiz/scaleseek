@@ -1,0 +1,89 @@
+---
+// Working page for comparing dot shapes. Not linked from the site and not indexed.
+// ?d=<shape> shows one shape in the homepage hero layout. &at=<seconds> freezes a loop at that moment, &palette=amber shows the old amber accent.
+import Base from '../layouts/Base.astro';
+import HalftoneShape from '../components/HalftoneShape.astro';
+
+const shapes = [
+  ['story', 'Land to layers', 'Mountains and downtown fold flat and lift into the two layers of the mark, then unfold. A 16 second loop.'],
+  ['torus', 'Ring', 'A tilted torus turning slowly. Calm, continuous, easy to read at any size.'],
+  ['cube', 'Cube', 'Three faces, three tones. The most graphic and architectural of the set.'],
+  ['mark', 'The mark', 'The two stacked planes of the Scaleseek logo as solid slabs, top one in the accent colour.'],
+  ['waves', 'Field', 'A square of dotted terrain rolling like a signal or a dataset. Always moving.'],
+  ['scale', 'Scale', 'Three spheres from small to large, the smallest in the accent colour. A literal take on the name.'],
+  ['gyroid', 'Lattice', 'A ball carved by a gyroid, with an amber interior. Organic and the most technical.'],
+] as const;
+---
+
+<Base title="Dot shapes" description="Halftone dot shape directions for review." noindex>
+  <div class="wrap index">
+    <h1>Dot shapes</h1>
+    <p class="lede">Same halftone treatment as the orb, applied to seven forms. Move your pointer to shift the light. Open any one to see it in the homepage hero.</p>
+    <div class="grid">
+      {shapes.map(([id, name, why]) => (
+        <a class="tile" href={`?d=${id}`}>
+          <div class="art"><HalftoneShape shape={id} spacing={7} /></div>
+          <div class="cap"><b>{name}</b><p>{why}</p><span class="more">See it in the hero <span class="arrow">&rarr;</span></span></div>
+        </a>
+      ))}
+    </div>
+  </div>
+
+  {shapes.map(([id]) => (
+    <section class="solo-hero" data-id={id} hidden>
+      <div class="wrap hero">
+        <div class="copy">
+          <a class="back" href="/hero-shapes">&larr; All shapes</a>
+          <h2 class="hh"><span>We test what AI can actually do.</span> <span>Then we publish what happened.</span></h2>
+          <p class="lede">An independent log of AI experiments, run from El Paso, Texas. Every one is filed with its question, its setup and its result, and nothing is taken down.</p>
+          <a class="btn primary" href="/experiments">Browse the experiments <span aria-hidden="true">&nearr;</span></a>
+        </div>
+        <div class="big"><HalftoneShape shape={id} spacing={id === 'story' ? 6 : 8} /></div>
+      </div>
+    </section>
+  ))}
+</Base>
+
+<style>
+  .index { padding-block: 64px; display: flex; flex-direction: column; gap: 24px; }
+  .index h1 { font-size: 36px; line-height: 40px; font-weight: 500; letter-spacing: -0.035em; }
+  .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
+  @media (max-width: 960px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 600px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+  .tile { border: 1px solid var(--line); border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; transition: border-color var(--t-tone) var(--ease), transform var(--t-move) var(--ease); }
+  .tile:hover { border-color: var(--mute); transform: translateY(-2px); }
+  .tile:active { transform: scale(0.99); }
+  .tile .art { aspect-ratio: 1; }
+  .cap { display: flex; flex-direction: column; gap: 4px; padding: 16px; border-top: 1px solid var(--line); }
+  .cap b { font-weight: 500; }
+  .cap p { font-size: 14px; line-height: 20px; color: var(--mute); }
+  .cap .more { margin-top: 8px; }
+
+  .hero { min-height: min(760px, calc(100vh - 72px)); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 32px 48px; padding-block: 48px 80px; }
+  @media (max-width: 900px) { .hero { grid-template-columns: minmax(0, 1fr); } }
+  .copy { display: flex; flex-direction: column; align-items: flex-start; gap: 24px; }
+  .copy .lede { max-width: 680px; }
+  .hh { max-width: 680px; font-size: 48px; line-height: 1; font-weight: 500; letter-spacing: -0.045em; padding-bottom: 4px;
+    background: linear-gradient(90deg, #ffffff, #9b9b9b); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .hh span { display: block; text-wrap: balance; }
+  @media (max-width: 480px) { .hh { font-size: 36px; line-height: 40px; } }
+  .big { aspect-ratio: 1; width: 100%; max-width: 560px; justify-self: end; }
+  @media (max-width: 900px) { .big { justify-self: center; max-width: 400px; order: -1; margin-bottom: -32px; } }
+</style>
+
+<script>
+  // ?d=<shape> swaps the grid for that shape in the hero layout
+  const only = new URLSearchParams(location.search).get('d');
+  if (only) {
+    const hero = document.querySelector<HTMLElement>(`.solo-hero[data-id="${only}"]`);
+    if (hero) {
+      document.querySelector('.index')?.remove();
+      document.querySelectorAll('.solo-hero').forEach((s) => { if (s !== hero) s.remove(); });
+      hero.hidden = false;
+      const at = new URLSearchParams(location.search).get('at');
+      if (at !== null) hero.querySelector<HTMLCanvasElement>('canvas')!.dataset.at = at;
+      const palette = new URLSearchParams(location.search).get('palette');
+      if (palette) hero.querySelector<HTMLCanvasElement>('canvas')!.dataset.palette = palette;
+    }
+  }
+</script>

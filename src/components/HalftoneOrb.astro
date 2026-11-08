@@ -1,0 +1,106 @@
+---
+// A sphere drawn as a grid of dots. Dot size follows how much light each point catches,
+// so the orb reads as lit from one side. The light drifts slowly and leans toward the pointer.
+// cx, cy and r are fractions of the canvas (r of its shorter side).
+// mode: 'lit' (front lit), 'rise' (lit from above, amber rim), 'eclipse' (back lit, amber corona)
+interface Props {
+  cx?: number;
+  cy?: number;
+  r?: number;
+  spacing?: number;
+  mode?: 'lit' | 'rise' | 'eclipse';
+  sphere?: 'ink' | 'pop';
+  class?: string;
+}
+const { cx = 0.5, cy = 0.5, r = 0.36, spacing = 8, mode = 'lit', sphere = 'ink', class: cls } = Astro.props;
+---
+<canvas class:list={['orb', cls]} aria-hidden="true"
+  data-cx={cx} data-cy={cy} data-r={r} data-s={spacing} data-mode={mode} data-sphere={sphere}></canvas>
+
+<style>
+  .orb { display: block; width: 100%; height: 100%; pointer-events: none; }
+</style>
+
+<script>
+  const INK = '244,244,241', POP = '255,178,36', DIM = '95,95,91';
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  type Orb = { cv: HTMLCanvasElement; on: boolean; ready: boolean; tx: number; ty: number; lx: number; ly: number };
+  const orbs: Orb[] = [...document.querySelectorAll<HTMLCanvasElement>('canvas.orb')].map((cv) => ({ cv, on: false, ready: false, tx: 0, ty: 0, lx: 0, ly: 0 }));
+
+  const ptr = { x: 0, y: 0, has: false };
+  addEventListener('pointermove', (e) => { ptr.x = e.clientX; ptr.y = e.clientY; ptr.has = true; }, { passive: true });
+
+  function draw(o: Orb, t: number) {
+    const cv = o.cv, d = cv.dataset;
+    const W = cv.clientWidth, H = cv.clientHeight, dpr = Math.min(2, devicePixelRatio || 1);
+    if (!W || !H) return;
+    if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+    const g = cv.getContext('2d')!;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+
+    const mode = d.mode, s = Math.max(5, Number(d.s) * Math.min(1, W / 700) ** 0.3);
+    const cx = Number(d.cx) * W, cy = Number(d.cy) * H, R = Number(d.r) * Math.min(W, H);
+    const body = d.sphere === 'pop' ? POP : INK, glow = d.sphere === 'pop' ? DIM : POP;
+
+    // light direction: a slow drift, nudged toward the pointer when it is over the page
+    const drift = still ? 0 : t * 0.00025;
+    let bx = -0.55 + Math.sin(drift) * 0.25, by = -0.6 + Math.cos(drift * 0.8) * 0.15;
+    if (mode === 'rise') { bx = Math.sin(drift) * 0.2; by = -0.95; }
+    if (mode === 'eclipse') { bx = Math.sin(drift) * 0.15; by = -0.2 + Math.cos(drift) * 0.1; }
+    if (ptr.has && !still) {
+      const rc = cv.getBoundingClientRect();
+      o.tx = Math.max(-1, Math.min(1, (ptr.x - rc.left - cx) / (R * 2.2)));
+      o.ty = Math.max(-1, Math.min(1, (ptr.y - rc.top - cy) / (R * 2.2)));
+    }
+    // start at rest so the first frame is lit correctly, then ease toward the target
+    const k = o.ready ? 0.06 : 1; o.ready = true;
+    o.lx += ((bx + o.tx * 0.5) - o.lx) * k; o.ly += ((by + o.ty * 0.5) - o.ly) * k;
+    const lz = mode === 'eclipse' ? -0.75 : mode === 'rise' ? 0.1 : 0.62;
+    const n = Math.hypot(o.lx, o.ly, lz), Lx = o.lx / n, Ly = o.ly / n, Lz = lz / n;
+
+    for (let y = s / 2; y < H; y += s) for (let x = s / 2; x < W; x += s) {
+      const dx = (x - cx) / R, dy = (y - cy) / R, q = dx * dx + dy * dy;
+      let v = 0, col = body, a = 1;
+      if (q < 1) {
+        const z = Math.sqrt(1 - q), l = Math.max(0, dx * Lx + dy * Ly + z * Lz);
+        if (mode === 'eclipse') {
+          // back lit: only the edge facing the light glows
+          const rim = Math.pow(1 - z, 3) * Math.max(0, dx * Lx + dy * Ly + 0.4);
+          v = 0.04 + rim * 1.4; col = rim > 0.25 ? POP : body;
+        } else {
+          v = mode === 'rise' ? 0.02 + 0.98 * Math.pow(l, 2.6) : 0.06 + 0.94 * Math.pow(l, 1.3);
+          if (mode === 'rise' && q > 0.95 && l > 0.35) col = POP;
+        }
+      } else {
+        const out = Math.sqrt(q) - 1;
+        if (mode === 'eclipse') {
+          v = Math.max(0, 0.32 - out * 1.4) * (0.6 + 0.4 * Math.max(0, (dx * Lx + dy * Ly) / Math.sqrt(q)));
+        } else {
+          // soft glow around the orb, stronger on the side away from the light
+          const away = Math.max(0, -(dx * Lx + dy * Ly) / Math.sqrt(q));
+          v = Math.max(0, 0.22 - out * 0.45) * (0.35 + away);
+          // a shadow pooled on the ground beneath it
+          const sx = (x - (cx - Lx * R * 0.7)) / (R * 1.25), sy = (y - (cy + R * 1.08)) / (R * 0.22), sd = sx * sx + sy * sy;
+          if (sd < 1) v = Math.max(v, (1 - sd) * 0.45);
+        }
+        col = glow; a = 0.9;
+      }
+      const r = Math.min(s * 0.5, v * s * 0.55);
+      if (r < 0.35) continue;
+      g.fillStyle = `rgba(${col},${a})`;
+      g.beginPath(); g.arc(x, y, r, 0, 6.2832); g.fill();
+    }
+  }
+
+  // only animate orbs that are on screen
+  const io = new IntersectionObserver((es) => es.forEach((e) => {
+    const o = orbs.find((o) => o.cv === e.target); if (o) o.on = e.isIntersecting;
+  }));
+  orbs.forEach((o) => { io.observe(o.cv); draw(o, 0); });
+  new ResizeObserver(() => orbs.forEach((o) => draw(o, performance.now()))).observe(document.body);
+  if (!still) {
+    const loop = (t: number) => { orbs.forEach((o) => o.on && draw(o, t)); requestAnimationFrame(loop); };
+    requestAnimationFrame(loop);
+  }
+</script>

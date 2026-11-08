@@ -1,0 +1,58 @@
+---
+import Base from '../../layouts/Base.astro';
+import ExperimentRow from '../../components/ExperimentRow.astro';
+import { getExperiments } from '../../lib/experiments';
+
+const experiments = await getExperiments();
+const topics = [...new Set(experiments.map((e) => e.data.topic))];
+const count = (t: string) => experiments.filter((e) => e.data.topic === t).length;
+---
+
+<Base title="Experiments" description="Every Scaleseek experiment, newest first.">
+  <div class="wrap page">
+    <div class="page-h">
+      <h1>Experiments</h1>
+      <p class="lede">Every test, newest first. Filter by topic, or open one to read the full write-up.</p>
+    </div>
+    <div class="chips" role="group" aria-label="Filter by topic">
+      <button class="chip" data-filter="" aria-pressed="true">All<span>{experiments.length}</span></button>
+      {topics.map((t) => (
+        <button class="chip" data-filter={t} aria-pressed="false">{t}<span>{count(t)}</span></button>
+      ))}
+    </div>
+    <div class="ls" id="log">
+      <p class="empty" hidden>No experiments in this topic yet. <button type="button" class="reset">Show all experiments</button></p>
+      {experiments.map((e) => <ExperimentRow experiment={e} showStatus />)}
+    </div>
+  </div>
+</Base>
+
+<style>
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { font: inherit; font-size: 14px; line-height: 20px; font-weight: 500; cursor: pointer; padding: 4px 12px; border-radius: 9999px; border: 1px solid var(--line); background: transparent; color: var(--ink); transition: border-color var(--t-tone) var(--ease), background-color var(--t-tone) var(--ease), color var(--t-tone) var(--ease); }
+  .chip:active { transform: scale(0.98); }
+  .chip span { color: var(--mute); font-family: var(--f-mono); font-size: 12px; line-height: 16px; margin-left: 8px; }
+  .chip:hover { border-color: var(--mute); }
+  .chip[aria-pressed='true'] { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+  .chip[aria-pressed='true'] span { color: inherit; opacity: 0.7; }
+  .empty { padding: 24px 0; color: var(--mute); border-bottom: 1px solid var(--line); }
+  .reset { font: inherit; font-weight: 600; color: var(--ink); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; text-decoration-color: var(--pop-2); text-underline-offset: 4px; }
+</style>
+
+<script>
+  const chips = document.querySelectorAll<HTMLButtonElement>('.chip');
+  const rows = document.querySelectorAll<HTMLElement>('#log .ls-row');
+  chips.forEach((chip) =>
+    chip.addEventListener('click', () => {
+      const topic = chip.dataset.filter;
+      chips.forEach((c) => c.setAttribute('aria-pressed', String(c === chip)));
+      rows.forEach((r) => (r.hidden = !!topic && r.dataset.topic !== topic));
+      empty.hidden = [...rows].some((r) => !r.hidden);
+    }),
+  );
+  const empty = document.querySelector<HTMLElement>('#log .empty')!;
+  document.querySelector('.reset')?.addEventListener('click', () => chips[0].click());
+  // footer topic links arrive as /experiments?topic=...
+  const wanted = new URLSearchParams(location.search).get('topic');
+  [...chips].find((c) => wanted && c.dataset.filter === wanted)?.click();
+</script>

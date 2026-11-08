@@ -1,0 +1,16 @@
+---
+const steps = [
+  ['Start with one question.', 'Each experiment asks a single thing that can be answered yes, no, or how much.'],
+  ['Write down the setup.', 'The models, data and prompts are recorded before the test runs, so the result can be repeated.'],
+  ['Publish the result.', 'The outcome goes up either way. Failed and abandoned tests stay in the log and say why.'],
+];
+---
+<div class="ls">
+  {steps.map(([title, text], i) => (
+    <div class="ls-row step">
+      <span class="no">{String(i + 1).padStart(2, '0')}</span>
+      <b>{title}</b>
+      <p>{text}</p>
+    </div>
+  ))}
+</div>

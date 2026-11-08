@@ -1,0 +1,5 @@
+---
+interface Props { status: 'Running' | 'Concluded' | 'Abandoned' }
+const { status } = Astro.props;
+---
+<span class={`status ${status.toLowerCase()}`}>{status}</span>

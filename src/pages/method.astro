@@ -1,0 +1,20 @@
+---
+import Base from '../layouts/Base.astro';
+import Steps from '../components/Steps.astro';
+---
+
+<Base title="Method" description="How Scaleseek experiments are run and recorded.">
+  <div class="wrap page">
+    <div class="page-h">
+      <h1>How experiments are run and recorded</h1>
+      <p class="lede">
+        Three steps, the same for every test. The format matters more than any single result, because it is
+        what makes the results comparable.
+      </p>
+    </div>
+    <Steps />
+    <div class="btns">
+      <a class="btn primary" href="/experiments">Browse experiments <span aria-hidden="true">&nearr;</span></a>
+    </div>
+  </div>
+</Base>

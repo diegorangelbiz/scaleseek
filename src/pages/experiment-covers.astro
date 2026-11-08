@@ -1,0 +1,24 @@
+---
+// Working page for folder covers on the experiments. Not linked from the site and not indexed.
+import Base from '../layouts/Base.astro';
+import ExperimentGrid from '../components/ExperimentGrid.astro';
+import { getExperiments } from '../lib/experiments';
+
+const experiments = await getExperiments();
+const options = [['corners', 'Corners'], ['diagonal', 'Diagonal'], ['top', 'Top glow']] as const;
+---
+
+<Base title="Experiment covers" description="Folder cover direction for the experiments." noindex>
+  <div class="wrap page">
+    <div class="page-h">
+      <h1>Experiment covers</h1>
+      <p class="lede">Three quiet containers for the folders, each a faint wash of turquoise and light purple on near black.</p>
+    </div>
+    {options.map(([id, name]) => (
+      <section class="opt">
+        <div class="sec-h"><h2>{name}</h2></div>
+        <ExperimentGrid experiments={experiments.slice(0, 3)} wash={id} />
+      </section>
+    ))}
+  </div>
+</Base>

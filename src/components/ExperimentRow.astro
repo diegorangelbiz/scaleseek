@@ -1,0 +1,15 @@
+---
+import Status from './Status.astro';
+import { pad, shortDate, type Experiment } from '../lib/experiments';
+
+interface Props { experiment: Experiment; showStatus?: boolean }
+const { experiment, showStatus = false } = Astro.props;
+const e = experiment.data;
+---
+<a class:list={['ls-row', { full: showStatus }]} href={`/experiments/${experiment.id}`} data-topic={e.topic}>
+  <span class="no">{pad(e.number)}</span>
+  <b>{e.title}</b>
+  <span class="mt">{e.topic}</span>
+  {showStatus && <Status status={e.status} />}
+  <span class="dt">{shortDate(e.date)}</span>
+</a>
